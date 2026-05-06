@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Background: Navy -->
+  <rect width="1024" height="1024" rx="224" fill="#101E3A"/>
+
+  <!-- Grid lines: parchment -->
+  <g stroke="#F2EDE6" stroke-width="5" fill="none" opacity="0.9">
+    <!-- Horizontal lines -->
+    <line x1="232" y1="192" x2="792" y2="192"/>
+    <line x1="232" y1="292" x2="792" y2="292"/>
+    <line x1="232" y1="380" x2="792" y2="380"/>
+    <line x1="232" y1="468" x2="792" y2="468"/>
+    <line x1="232" y1="556" x2="792" y2="556"/>
+    <line x1="232" y1="644" x2="792" y2="644"/>
+    <line x1="232" y1="732" x2="792" y2="732"/>
+
+    <!-- Vertical lines: first column wider (280px), rest 140px -->
+    <line x1="232" y1="192" x2="232" y2="732"/>
+    <line x1="512" y1="192" x2="512" y2="732"/>
+    <line x1="652" y1="192" x2="652" y2="732"/>
+    <line x1="792" y1="192" x2="792" y2="732"/>
+  </g>
+
+  <!-- Top-left cell highlight (electric cyan) -->
+  <rect x="232" y="192" width="280" height="100" rx="4" fill="#00E5CC" opacity="0.25"/>
+  <rect x="232" y="192" width="280" height="100" rx="4" fill="none" stroke="#00E5CC" stroke-width="5"/>
+
+  <!-- "FlatFile" inside the top-left cell -->
+  <text x="372" y="248" text-anchor="middle" dominant-baseline="central" font-family="'Geist Mono', 'SF Mono', 'Menlo', monospace" font-size="52" font-weight="600" fill="#F2EDE6">FlatFile</text>
+</svg>
