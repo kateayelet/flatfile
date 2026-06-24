@@ -144,10 +144,22 @@ final class TableViewModel {
     /// edit: if a save is still pending, the user's version wins.
     func reloadIfChanged() {
         guard let sourceURL, saveTask == nil, let document else { return }
-        guard let disk = try? FileService.readText(from: sourceURL), disk != document.rawCSV else { return }
+
+        let disk: String
+        do {
+            disk = try FileService.readText(from: sourceURL)
+        } catch {
+            errorMessage = "Could not re-read \"\(document.name).csv\". \(error.localizedDescription)"
+            return
+        }
+        guard disk != document.rawCSV else { return }
+
         let delimiter = CSVParser.detectDelimiter(disk)
         let parsed = CSVParser.parse(disk, delimiter: delimiter)
-        guard let headers = parsed.first, !headers.isEmpty else { return }
+        guard let headers = parsed.first, !headers.isEmpty else {
+            errorMessage = "\"\(document.name).csv\" changed on disk but is no longer valid CSV, so it wasn't reloaded."
+            return
+        }
         _ = headers
         self.document = CSVDocument(name: document.name, parsedRows: parsed, delimiter: delimiter)
         rawCSVText = self.document?.rawCSV ?? ""

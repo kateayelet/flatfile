@@ -102,6 +102,8 @@ struct TableView: View {
         ScrollView(.horizontal) {
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
                 GridRow {
+                    // Leading column reserved for the per-row actions menu.
+                    Color.clear.frame(width: 28, height: 28)
                     ForEach(Array(document.headers.enumerated()), id: \.offset) { index, header in
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 6) {
@@ -145,6 +147,9 @@ struct TableView: View {
                 let rows = viewModel.searchQuery.isEmpty ? document.rows : viewModel.filteredRows
                 ForEach(rows) { row in
                     GridRow {
+                        // Tappable per-row delete — reliable on iPhone, where the
+                        // cell TextFields would otherwise swallow a long-press.
+                        rowActionsMenu(for: row)
                         ForEach(Array(document.headers.indices), id: \.self) { columnIndex in
                             TextField(
                                 document.headers[columnIndex].isEmpty ? "Value" : document.headers[columnIndex],
@@ -155,6 +160,7 @@ struct TableView: View {
                         }
                     }
                     .contextMenu {
+                        // Right-click on Mac (and a secondary path elsewhere).
                         Button(role: .destructive) {
                             rowToDelete = row
                         } label: {
@@ -164,6 +170,24 @@ struct TableView: View {
                 }
             }
         }
+    }
+
+    private func rowActionsMenu(for row: CSVRow) -> some View {
+        Menu {
+            Button(role: .destructive) {
+                rowToDelete = row
+            } label: {
+                Label("Delete Row", systemImage: "trash")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel("Row actions")
     }
 
     private func cellBinding(rowID: UUID, columnIndex: Int) -> Binding<String> {

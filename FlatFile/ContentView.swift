@@ -107,10 +107,13 @@ struct ContentView: View {
             contentType: .commaSeparatedText,
             defaultFilename: viewModel.shareFileName
         ) { result in
-            if case .success(let url) = result {
+            switch result {
+            case .success(let url):
                 viewModel.sourceURL = url
                 // A "Save As" into a connected folder should show up in its list.
                 library.refresh()
+            case .failure(let error):
+                viewModel.errorMessage = "Could not save the file. \(error.localizedDescription)"
             }
         }
         .onChange(of: scenePhase) { _, phase in
