@@ -13,7 +13,9 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var viewModel = TableViewModel()
+    @State private var library = LibraryViewModel()
     @State private var isImporting = false
+    @State private var isConnectingFolder = false
     @State private var isExporting = false
     @State private var showingError = false
     @State private var showingWorkspace = false
@@ -31,6 +33,7 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            library.loadConnectedFolders()
             if viewModel.document == nil {
                 viewModel.createNewDocument(name: "Untitled")
             }
@@ -84,6 +87,20 @@ struct ContentView: View {
                 viewModel.errorMessage = error.localizedDescription
             }
         }
+        .fileImporter(
+            isPresented: $isConnectingFolder,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first {
+                    library.connectFolder(at: url)
+                }
+            case .failure(let error):
+                library.errorMessage = error.localizedDescription
+            }
+        }
         .fileExporter(
             isPresented: $isExporting,
             document: CSVFileDocument(text: viewModel.shareText),
@@ -92,12 +109,15 @@ struct ContentView: View {
         ) { result in
             if case .success(let url) = result {
                 viewModel.sourceURL = url
+                // A "Save As" into a connected folder should show up in its list.
+                library.refresh()
             }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 // Pick up external edits made while we were away.
                 viewModel.reloadIfChanged()
+                library.refresh()
             } else {
                 // Flush any pending debounced save before leaving the foreground.
                 viewModel.flush()
@@ -105,6 +125,14 @@ struct ContentView: View {
         }
         .onChange(of: viewModel.errorMessage) { _, newValue in
             showingError = newValue != nil
+        }
+        .onChange(of: library.errorMessage) { _, newValue in
+            // Surface folder/bookmark errors through the same alert, then clear
+            // so the same error can re-trigger later.
+            if let newValue {
+                viewModel.errorMessage = newValue
+                library.errorMessage = nil
+            }
         }
         .alert("FlatFile Error", isPresented: $showingError, presenting: viewModel.errorMessage) { _ in
             Button("OK") {
@@ -140,6 +168,7 @@ struct ContentView: View {
 
     private var workspaceView: some View {
         TableListView(
+            library: library,
             document: viewModel.document,
             sourceURL: viewModel.sourceURL,
             pairedMarkdownURL: viewModel.pairedMarkdownURL,
@@ -150,6 +179,15 @@ struct ContentView: View {
             onImport: {
                 showingWorkspace = false
                 isImporting = true
+            },
+            onConnectFolder: {
+                showingWorkspace = false
+                isConnectingFolder = true
+            },
+            onOpenFile: { url in
+                showingWorkspace = false
+                viewModel.openDocument(at: url)
+                columnVisibility = .detailOnly
             },
             onSave: {
                 // Edits persist automatically once the file has a location;
