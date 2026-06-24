@@ -139,6 +139,20 @@ final class TableViewModel {
     /// Flush before the app backgrounds or the view goes away, so no edit is lost.
     func flush() { persistNow() }
 
+    /// On return to the foreground, pick up edits made to the file elsewhere
+    /// (Files app, another device via iCloud), but never clobber an in-progress
+    /// edit: if a save is still pending, the user's version wins.
+    func reloadIfChanged() {
+        guard let sourceURL, saveTask == nil, let document else { return }
+        guard let disk = try? FileService.readText(from: sourceURL), disk != document.rawCSV else { return }
+        let delimiter = CSVParser.detectDelimiter(disk)
+        let parsed = CSVParser.parse(disk, delimiter: delimiter)
+        guard let headers = parsed.first, !headers.isEmpty else { return }
+        _ = headers
+        self.document = CSVDocument(name: document.name, parsedRows: parsed, delimiter: delimiter)
+        rawCSVText = self.document?.rawCSV ?? ""
+    }
+
     // MARK: - Mutations
 
     func updateHeader(at index: Int, value: String) {

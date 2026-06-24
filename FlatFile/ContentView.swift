@@ -95,8 +95,13 @@ struct ContentView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            // Flush any pending debounced save before the app leaves the foreground.
-            if phase != .active { viewModel.flush() }
+            if phase == .active {
+                // Pick up external edits made while we were away.
+                viewModel.reloadIfChanged()
+            } else {
+                // Flush any pending debounced save before leaving the foreground.
+                viewModel.flush()
+            }
         }
         .onChange(of: viewModel.errorMessage) { _, newValue in
             showingError = newValue != nil
