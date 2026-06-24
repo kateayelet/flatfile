@@ -35,8 +35,10 @@ struct TableView: View {
                         RowAppendView(headers: document.headers) { values in
                             viewModel.appendRow(values)
                         }
+                        #if os(macOS)
                         Divider()
                         RawCSVView(viewModel: viewModel)
+                        #endif
                     }
                     .padding()
                 }
