@@ -108,6 +108,37 @@ final class TableViewModel {
         }
     }
 
+    // MARK: - Autosave
+
+    private var saveTask: Task<Void, Never>?
+
+    /// Debounced write to disk after an edit. No-op until the document has a
+    /// destination (a brand-new table must be saved once via "Save As" first).
+    private func scheduleAutosave() {
+        guard sourceURL != nil else { return }
+        saveTask?.cancel()
+        saveTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard let self, !Task.isCancelled else { return }
+            self.persistNow()
+        }
+    }
+
+    /// Writes any pending edit to disk immediately. Safe to call repeatedly.
+    func persistNow() {
+        saveTask?.cancel()
+        guard let document, let sourceURL else { return }
+        do {
+            try FileService.saveDocument(document, to: sourceURL)
+            errorMessage = nil
+        } catch {
+            errorMessage = "Could not save \"\(document.name).csv\". \(error.localizedDescription)"
+        }
+    }
+
+    /// Flush before the app backgrounds or the view goes away, so no edit is lost.
+    func flush() { persistNow() }
+
     // MARK: - Mutations
 
     func updateHeader(at index: Int, value: String) {
@@ -115,6 +146,7 @@ final class TableViewModel {
         document.updateHeader(at: index, value: value)
         self.document = document
         rawCSVText = document.rawCSV
+        scheduleAutosave()
     }
 
     func updateCell(rowID: UUID, columnIndex: Int, value: String) {
@@ -122,6 +154,7 @@ final class TableViewModel {
         document.updateCell(rowID: rowID, columnIndex: columnIndex, value: value)
         self.document = document
         rawCSVText = document.rawCSV
+        scheduleAutosave()
     }
 
     func appendRow(_ values: [String]) {
@@ -129,6 +162,7 @@ final class TableViewModel {
         document.appendRow(values)
         self.document = document
         rawCSVText = document.rawCSV
+        scheduleAutosave()
     }
 
     func deleteRow(id: UUID) {
@@ -136,6 +170,7 @@ final class TableViewModel {
         document.deleteRow(id: id)
         self.document = document
         rawCSVText = document.rawCSV
+        scheduleAutosave()
     }
 
     func sortByColumn(_ columnIndex: Int) {
@@ -149,6 +184,7 @@ final class TableViewModel {
         document.sortByColumn(columnIndex, ascending: sortAscending)
         self.document = document
         rawCSVText = document.rawCSV
+        scheduleAutosave()
     }
 
     // MARK: - Find & Replace
@@ -172,6 +208,7 @@ final class TableViewModel {
         }
         self.document = document
         rawCSVText = document.rawCSV
+        scheduleAutosave()
     }
 
     func replaceAll() {
@@ -190,6 +227,7 @@ final class TableViewModel {
         }
         self.document = document
         rawCSVText = document.rawCSV
+        scheduleAutosave()
     }
 
     // MARK: - Share
@@ -216,6 +254,7 @@ final class TableViewModel {
         let currentName = document?.name ?? sourceURL?.deletingPathExtension().lastPathComponent ?? "Imported CSV"
         document = CSVDocument(name: currentName, parsedRows: parsed, delimiter: delimiter)
         errorMessage = nil
+        scheduleAutosave()
     }
 
     func dismissError() {

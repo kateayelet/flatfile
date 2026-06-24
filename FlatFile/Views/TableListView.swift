@@ -20,7 +20,7 @@ struct TableListView: View {
             Section("Workspace") {
                 Button("New Table", action: onNewTable)
                 Button("Import CSV", action: onImport)
-                Button("Save Changes", action: onSave)
+                Button("Save As…", action: onSave)
                     .disabled(document == nil)
                 if let document {
                     ShareLink(

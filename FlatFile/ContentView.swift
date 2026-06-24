@@ -10,6 +10,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var viewModel = TableViewModel()
     @State private var isImporting = false
@@ -93,6 +94,10 @@ struct ContentView: View {
                 viewModel.sourceURL = url
             }
         }
+        .onChange(of: scenePhase) { _, phase in
+            // Flush any pending debounced save before the app leaves the foreground.
+            if phase != .active { viewModel.flush() }
+        }
         .onChange(of: viewModel.errorMessage) { _, newValue in
             showingError = newValue != nil
         }
@@ -142,11 +147,9 @@ struct ContentView: View {
                 isImporting = true
             },
             onSave: {
-                if viewModel.sourceURL != nil {
-                    viewModel.saveDocument()
-                } else {
-                    isExporting = true
-                }
+                // Edits persist automatically once the file has a location;
+                // this control is now "Save As" (first save, or save a copy).
+                isExporting = true
             }
         )
     }
