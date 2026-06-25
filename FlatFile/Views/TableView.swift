@@ -92,12 +92,15 @@ struct TableView: View {
             .sheet(isPresented: $viewModel.showingColumnStats) {
                 if let index = viewModel.statsColumnIndex,
                    let document = viewModel.document,
+                   document.headers.indices.contains(index),
                    let stats = viewModel.columnStats(for: index) {
                     ColumnStatsView(
+                        viewModel: viewModel,
+                        columnIndex: index,
                         headerName: document.headers[index],
                         stats: stats
                     )
-                    .presentationDetents([.medium])
+                    .presentationDetents([.medium, .large])
                 }
             }
         } else {
@@ -238,9 +241,13 @@ struct TableView: View {
             ForEach(Array(document.headers.enumerated()), id: \.offset) { index, header in
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 6) {
-                        // Sample (not the whole column) so a big file doesn't pay
-                        // an O(rows) scan every time the pinned header redraws.
-                        Image(systemName: ColumnType.infer(from: document.rows.prefix(50).map { $0[index] }).icon)
+                        // The user's intended type (from the sidecar) if set,
+                        // else inferred from a sample (not the whole column) so a
+                        // big file doesn't pay an O(rows) scan on every redraw.
+                        Image(systemName: viewModel.resolvedType(
+                            forColumn: index,
+                            sample: document.rows.prefix(50).map { $0[index] }
+                        ).icon)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                         Button {
@@ -272,6 +279,14 @@ struct TableView: View {
                         text: headerBinding(columnIndex: index)
                     )
                     .textFieldStyle(.roundedBorder)
+                    // The optional sidecar display name, shown only when it's been
+                    // set to something other than the raw header.
+                    if viewModel.displayName(forColumn: index) != header, !header.isEmpty {
+                        Text(viewModel.displayName(forColumn: index))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
                 .frame(width: cellWidth, alignment: .leading)
             }
