@@ -146,17 +146,24 @@ struct ContentView: View {
         }
     }
 
+    /// The open .csv lives in a connected folder, so we hold a scope that covers
+    /// reading/writing its companion .md (gates the companion-note features).
+    private var sourceInConnectedFolder: Bool {
+        guard let url = viewModel.sourceURL else { return false }
+        return library.contains(url)
+    }
+
     private var splitLayout: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             workspaceView
         } detail: {
-            TableView(viewModel: viewModel)
+            TableView(viewModel: viewModel, sourceInConnectedFolder: sourceInConnectedFolder)
         }
     }
 
     private var compactLayout: some View {
         NavigationStack {
-            TableView(viewModel: viewModel)
+            TableView(viewModel: viewModel, sourceInConnectedFolder: sourceInConnectedFolder)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Button {

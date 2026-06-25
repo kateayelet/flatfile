@@ -12,7 +12,9 @@ import Observation
 @Observable
 final class TableViewModel {
     var document: CSVDocument?
-    var sourceURL: URL?
+    var sourceURL: URL? {
+        didSet { pairedMarkdownURL = PaperclipHelper.pairedMarkdownURL(for: sourceURL) }
+    }
     var rawCSVText = ""
     var errorMessage: String?
     var sortColumnIndex: Int?
@@ -54,9 +56,27 @@ final class TableViewModel {
         return ColumnStats.compute(values: values)
     }
 
-    // Paperclip
-    var pairedMarkdownURL: URL? {
-        PaperclipHelper.pairedMarkdownURL(for: sourceURL)
+    // Paperclip — the companion .md next to the .csv, if one exists. Stored (not
+    // computed) so it updates reactively and avoids a filesystem stat per redraw;
+    // refreshed whenever sourceURL changes (see its didSet) and after we create one.
+    var pairedMarkdownURL: URL?
+
+    /// Creates an empty `<name>.md` next to the current `.csv` (same-name pairing)
+    /// when none exists yet, and returns its URL. No-op without a saved source.
+    @discardableResult
+    func createCompanionNote() -> URL? {
+        guard let sourceURL, pairedMarkdownURL == nil else { return nil }
+        let mdURL = sourceURL.deletingPathExtension().appendingPathExtension("md")
+        let seed = "# \(sourceURL.deletingPathExtension().lastPathComponent)\n\n"
+        do {
+            try FileService.writeText(seed, to: mdURL)
+            pairedMarkdownURL = mdURL
+            errorMessage = nil
+            return mdURL
+        } catch {
+            errorMessage = "Could not create the companion note. \(error.localizedDescription)"
+            return nil
+        }
     }
 
     // MARK: - Document lifecycle
@@ -163,6 +183,8 @@ final class TableViewModel {
         _ = headers
         self.document = CSVDocument(name: document.name, parsedRows: parsed, delimiter: delimiter)
         rawCSVText = self.document?.rawCSV ?? ""
+        // An external add/remove of the companion .md should show up too.
+        pairedMarkdownURL = PaperclipHelper.pairedMarkdownURL(for: sourceURL)
     }
 
     // MARK: - Mutations

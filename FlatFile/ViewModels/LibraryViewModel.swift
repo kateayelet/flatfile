@@ -111,6 +111,17 @@ final class LibraryViewModel {
         persist()
     }
 
+    /// True when `url` lives inside a connected folder, so we hold a security
+    /// scope that covers reading/writing it and creating siblings (e.g. a
+    /// companion `.md`). Companion features are gated on this.
+    func contains(_ url: URL) -> Bool {
+        let target = url.standardizedFileURL.resolvingSymlinksInPath().path
+        return folders.contains { folder in
+            let base = folder.url.standardizedFileURL.resolvingSymlinksInPath().path
+            return target == base || target.hasPrefix(base + "/")
+        }
+    }
+
     // MARK: - Refresh
 
     /// Re-list every connected folder (e.g. after a new file is saved into one,

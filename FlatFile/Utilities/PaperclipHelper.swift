@@ -17,4 +17,13 @@ enum PaperclipHelper {
 
         return FileManager.default.fileExists(atPath: markdownURL.path) ? markdownURL : nil
     }
+
+    /// Deep link that asks FlatNote to open a file: `flatnote://open?path=...`.
+    static func flatNoteOpenURL(for fileURL: URL) -> URL? {
+        var components = URLComponents()
+        components.scheme = "flatnote"
+        components.host = "open"
+        components.queryItems = [URLQueryItem(name: "path", value: fileURL.path)]
+        return components.url
+    }
 }

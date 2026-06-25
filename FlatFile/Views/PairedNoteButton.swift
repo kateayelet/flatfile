@@ -41,7 +41,7 @@ struct PairedNoteButton<Label: View>: View {
     }
     #else
     private func openOnIOS() {
-        guard let link = Self.flatNoteLink(for: url) else {
+        guard let link = PaperclipHelper.flatNoteOpenURL(for: url) else {
             previewURL = url
             return
         }
@@ -49,14 +49,6 @@ struct PairedNoteButton<Label: View>: View {
             // FlatNote not installed — preview the note in place instead.
             if !accepted { previewURL = url }
         }
-    }
-
-    private static func flatNoteLink(for fileURL: URL) -> URL? {
-        var components = URLComponents()
-        components.scheme = "flatnote"
-        components.host = "open"
-        components.queryItems = [URLQueryItem(name: "path", value: fileURL.path)]
-        return components.url
     }
     #endif
 }

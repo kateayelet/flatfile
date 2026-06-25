@@ -10,49 +10,39 @@ import Observation
 
 struct TableView: View {
     @Bindable var viewModel: TableViewModel
+    /// Whether the open .csv is inside a connected folder — i.e. we hold a
+    /// security scope that lets us read/write a companion .md and its siblings.
+    /// Companion controls are hidden otherwise (the writes would fail).
+    var sourceInConnectedFolder = false
     @State private var rowToDelete: CSVRow?
+    @State private var showingNotePane = false
+    @Environment(\.openURL) private var openURL
+    #if !os(macOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
+
+    /// Wide layouts (iPad regular width, Mac) get the table + note side by side;
+    /// iPhone (compact) keeps the cross-launch handoff.
+    private var isWide: Bool {
+        #if os(macOS)
+        return true
+        #else
+        return horizontalSizeClass == .regular
+        #endif
+    }
 
     var body: some View {
         if let document = viewModel.document {
-            VStack(spacing: 0) {
-                if viewModel.showingFindReplace {
-                    FindReplaceBar(
-                        findQuery: $viewModel.findQuery,
-                        replaceQuery: $viewModel.replaceQuery,
-                        isVisible: $viewModel.showingFindReplace,
-                        matchCount: viewModel.findMatchCount,
-                        totalRows: document.rowCount,
-                        onReplaceOne: { viewModel.replaceOne() },
-                        onReplaceAll: { viewModel.replaceAll() }
-                    )
-                    Divider()
-                }
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        tableGrid(for: document)
-                        Divider()
-                        RowAppendView(headers: document.headers) { values in
-                            viewModel.appendRow(values)
-                        }
-                        #if os(macOS)
-                        Divider()
-                        RawCSVView(viewModel: viewModel)
-                        #endif
-                    }
-                    .padding()
-                }
-            }
+            content(for: document)
             .navigationTitle(document.name)
+            // Reset the note pane per document: tears it down (flushing its edits
+            // via onDisappear) and clears the toggle so it never leaks across files.
+            .onChange(of: viewModel.sourceURL) { _, _ in showingNotePane = false }
             .searchable(text: $viewModel.searchQuery, prompt: "Filter rows...")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     HStack(spacing: 12) {
-                        if let pairedNoteURL = viewModel.pairedMarkdownURL {
-                            PairedNoteButton(url: pairedNoteURL) {
-                                Label("Open Paired Note", systemImage: "paperclip")
-                            }
-                        }
+                        companionControls()
                         Button {
                             viewModel.showingFindReplace.toggle()
                         } label: {
@@ -101,6 +91,93 @@ struct TableView: View {
                 description: Text("Import a CSV file to start editing.")
             )
         }
+    }
+
+    /// Table alone, or table + companion note pane side by side on wide layouts.
+    @ViewBuilder
+    private func content(for document: CSVDocument) -> some View {
+        if isWide, showingNotePane, sourceInConnectedFolder, let mdURL = viewModel.pairedMarkdownURL {
+            HStack(spacing: 0) {
+                tableContent(for: document)
+                Divider()
+                CompanionNotePane(url: mdURL)
+                    .frame(minWidth: 280, idealWidth: 340, maxWidth: 460)
+            }
+        } else {
+            tableContent(for: document)
+        }
+    }
+
+    private func tableContent(for document: CSVDocument) -> some View {
+        VStack(spacing: 0) {
+            if viewModel.showingFindReplace {
+                FindReplaceBar(
+                    findQuery: $viewModel.findQuery,
+                    replaceQuery: $viewModel.replaceQuery,
+                    isVisible: $viewModel.showingFindReplace,
+                    matchCount: viewModel.findMatchCount,
+                    totalRows: document.rowCount,
+                    onReplaceOne: { viewModel.replaceOne() },
+                    onReplaceAll: { viewModel.replaceAll() }
+                )
+                Divider()
+            }
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    tableGrid(for: document)
+                    Divider()
+                    RowAppendView(headers: document.headers) { values in
+                        viewModel.appendRow(values)
+                    }
+                    #if os(macOS)
+                    Divider()
+                    RawCSVView(viewModel: viewModel)
+                    #endif
+                }
+                .padding()
+            }
+        }
+    }
+
+    /// Toolbar paperclip: toggle the side-by-side note (wide), cross-launch
+    /// FlatNote (iPhone), or offer to create a companion when none exists.
+    @ViewBuilder
+    private func companionControls() -> some View {
+        if !sourceInConnectedFolder {
+            EmptyView()
+        } else if let mdURL = viewModel.pairedMarkdownURL {
+            if isWide {
+                Button {
+                    showingNotePane.toggle()
+                } label: {
+                    Label("Companion Note", systemImage: "note.text")
+                }
+            } else {
+                PairedNoteButton(url: mdURL) {
+                    Label("Open Paired Note", systemImage: "paperclip")
+                }
+            }
+        } else if viewModel.sourceURL != nil {
+            Button {
+                addCompanion()
+            } label: {
+                Label("Add Companion Note", systemImage: "doc.badge.plus")
+            }
+        }
+    }
+
+    private func addCompanion() {
+        guard let url = viewModel.createCompanionNote() else { return }
+        #if os(macOS)
+        showingNotePane = true
+        #else
+        if isWide {
+            showingNotePane = true
+        } else if let link = PaperclipHelper.flatNoteOpenURL(for: url) {
+            openURL(link)
+        }
+        #endif
     }
 
     private func tableGrid(for document: CSVDocument) -> some View {
