@@ -50,6 +50,20 @@ final class TableViewModel {
     var statsColumnIndex: Int?
     var showingColumnStats = false
 
+    // Inspect / data quality
+    var showingInspect = false
+
+    /// Runs the read-only data-quality inspection. Re-reads the source file (if
+    /// any) so ragged rows — normalized away in the in-memory model — can be seen.
+    func runInspection() -> [InspectionFinding] {
+        guard let document else { return [] }
+        var rawParsedRows: [[String]]?
+        if let sourceURL, let text = try? FileService.readText(from: sourceURL) {
+            rawParsedRows = CSVParser.parse(text, delimiter: CSVParser.detectDelimiter(text))
+        }
+        return InspectService.inspect(document, rawParsedRows: rawParsedRows)
+    }
+
     func columnStats(for columnIndex: Int) -> ColumnStats? {
         guard let document, document.headers.indices.contains(columnIndex) else { return nil }
         let values = document.rows.map { $0[columnIndex] }

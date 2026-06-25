@@ -15,6 +15,7 @@ struct TableView: View {
     /// Companion controls are hidden otherwise (the writes would fail).
     var sourceInConnectedFolder = false
     @State private var rowToDelete: CSVRow?
+    @State private var inspectionFindings: [InspectionFinding] = []
     @State private var showingNotePane = false
     @Environment(\.openURL) private var openURL
     #if !os(macOS)
@@ -48,6 +49,12 @@ struct TableView: View {
                         } label: {
                             Label("Find & Replace", systemImage: "magnifyingglass")
                         }
+                        Button {
+                            inspectionFindings = viewModel.runInspection()
+                            viewModel.showingInspect = true
+                        } label: {
+                            Label("Inspect", systemImage: "checkmark.seal")
+                        }
                         ShareLink(
                             item: document.rawCSV,
                             subject: Text(document.name),
@@ -71,6 +78,11 @@ struct TableView: View {
                         viewModel.deleteRow(id: row.id)
                         rowToDelete = nil
                     }
+                }
+            }
+            .sheet(isPresented: $viewModel.showingInspect) {
+                InspectView(findings: inspectionFindings) {
+                    viewModel.showingInspect = false
                 }
             }
             .sheet(isPresented: $viewModel.showingColumnStats) {
