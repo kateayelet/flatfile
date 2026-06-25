@@ -207,7 +207,11 @@ final class TableViewModel {
         guard var document else { return }
         document.updateHeader(at: index, value: value)
         self.document = document
+        // Only the macOS raw-CSV editor reads rawCSVText; skip the per-edit
+        // whole-document serialize on iOS, where nothing consumes it.
+        #if os(macOS)
         rawCSVText = document.rawCSV
+        #endif
         scheduleAutosave()
     }
 
@@ -215,7 +219,11 @@ final class TableViewModel {
         guard var document else { return }
         document.updateCell(rowID: rowID, columnIndex: columnIndex, value: value)
         self.document = document
+        // Only the macOS raw-CSV editor reads rawCSVText; skip the per-edit
+        // whole-document serialize on iOS, where nothing consumes it.
+        #if os(macOS)
         rawCSVText = document.rawCSV
+        #endif
         scheduleAutosave()
     }
 
@@ -223,7 +231,11 @@ final class TableViewModel {
         guard var document else { return }
         document.appendRow(values)
         self.document = document
+        // Only the macOS raw-CSV editor reads rawCSVText; skip the per-edit
+        // whole-document serialize on iOS, where nothing consumes it.
+        #if os(macOS)
         rawCSVText = document.rawCSV
+        #endif
         scheduleAutosave()
     }
 
@@ -231,7 +243,11 @@ final class TableViewModel {
         guard var document else { return }
         document.deleteRow(id: id)
         self.document = document
+        // Only the macOS raw-CSV editor reads rawCSVText; skip the per-edit
+        // whole-document serialize on iOS, where nothing consumes it.
+        #if os(macOS)
         rawCSVText = document.rawCSV
+        #endif
         scheduleAutosave()
     }
 
@@ -245,7 +261,11 @@ final class TableViewModel {
         }
         document.sortByColumn(columnIndex, ascending: sortAscending)
         self.document = document
+        // Only the macOS raw-CSV editor reads rawCSVText; skip the per-edit
+        // whole-document serialize on iOS, where nothing consumes it.
+        #if os(macOS)
         rawCSVText = document.rawCSV
+        #endif
         scheduleAutosave()
     }
 
@@ -269,7 +289,11 @@ final class TableViewModel {
             }
         }
         self.document = document
+        // Only the macOS raw-CSV editor reads rawCSVText; skip the per-edit
+        // whole-document serialize on iOS, where nothing consumes it.
+        #if os(macOS)
         rawCSVText = document.rawCSV
+        #endif
         scheduleAutosave()
     }
 
@@ -288,7 +312,11 @@ final class TableViewModel {
             }
         }
         self.document = document
+        // Only the macOS raw-CSV editor reads rawCSVText; skip the per-edit
+        // whole-document serialize on iOS, where nothing consumes it.
+        #if os(macOS)
         rawCSVText = document.rawCSV
+        #endif
         scheduleAutosave()
     }
 

@@ -16,6 +16,10 @@ struct TableView: View {
     var sourceInConnectedFolder = false
     @State private var rowToDelete: CSVRow?
     @State private var inspectionFindings: [InspectionFinding] = []
+
+    /// Fixed column width keeps the pinned header aligned with virtualized rows.
+    private let cellWidth: CGFloat = 160
+    private static let largeFileThreshold = 2000
     @State private var showingNotePane = false
     @Environment(\.openURL) private var openURL
     #if !os(macOS)
@@ -135,20 +139,23 @@ struct TableView: View {
                 Divider()
             }
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    tableGrid(for: document)
-                    Divider()
-                    RowAppendView(headers: document.headers) { values in
-                        viewModel.appendRow(values)
-                    }
-                    #if os(macOS)
-                    Divider()
-                    RawCSVView(viewModel: viewModel)
-                    #endif
-                }
-                .padding()
+            if document.rowCount > Self.largeFileThreshold {
+                Text("Large file — \(document.rowCount) rows. Rows are virtualized for smooth scrolling.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    .padding(.vertical, 4)
+                Divider()
             }
+
+            virtualTable(for: document)
+
+            #if os(macOS)
+            Divider()
+            RawCSVView(viewModel: viewModel)
+                .frame(maxHeight: 220)
+            #endif
         }
     }
 
@@ -192,76 +199,107 @@ struct TableView: View {
         #endif
     }
 
-    private func tableGrid(for document: CSVDocument) -> some View {
-        ScrollView(.horizontal) {
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
-                GridRow {
-                    // Leading column reserved for the per-row actions menu.
-                    Color.clear.frame(width: 28, height: 28)
-                    ForEach(Array(document.headers.enumerated()), id: \.offset) { index, header in
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 6) {
-                                Image(systemName: ColumnType.infer(from: document.rows.map { $0[index] }).icon)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Button {
-                                    viewModel.sortByColumn(index)
-                                } label: {
-                                    Text("Sort")
-                                        .font(.caption.weight(.medium))
-                                }
-                                .buttonStyle(.borderless)
-
-                                Spacer(minLength: 0)
-
-                                Button {
-                                    viewModel.statsColumnIndex = index
-                                    viewModel.showingColumnStats = true
-                                } label: {
-                                    Image(systemName: "chart.bar")
-                                        .font(.caption)
-                                }
-                                .buttonStyle(.borderless)
-
-                                if viewModel.sortColumnIndex == index {
-                                    Image(systemName: viewModel.sortAscending ? "chevron.up" : "chevron.down")
-                                        .font(.caption)
-                                }
-                            }
-                            TextField(
-                                "Column \(index + 1)",
-                                text: headerBinding(columnIndex: index)
-                            )
-                            .textFieldStyle(.roundedBorder)
+    /// Virtualized table: one 2-axis ScrollView + LazyVStack so only on-screen
+    /// rows are materialized (a 5k-row CSV scrolls smoothly), with the header
+    /// pinned and columns fixed-width so they stay aligned during horizontal pan.
+    private func virtualTable(for document: CSVDocument) -> some View {
+        let rows = viewModel.searchQuery.isEmpty ? document.rows : viewModel.filteredRows
+        // Outer horizontal scroll pans the whole table; the header sits above the
+        // inner vertical scroll so it stays frozen while rows scroll. The inner
+        // vertical ScrollView has a bounded height, so its LazyVStack genuinely
+        // virtualizes (only on-screen rows are built).
+        return ScrollView(.horizontal, showsIndicators: true) {
+            VStack(alignment: .leading, spacing: 8) {
+                headerRow(for: document)
+                Divider()
+                ScrollView(.vertical) {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+                        ForEach(rows) { row in
+                            rowView(row, document: document)
                         }
-                        .frame(minWidth: 140, alignment: .leading)
+                        Divider()
+                            .padding(.top, 8)
+                        RowAppendView(headers: document.headers) { values in
+                            viewModel.appendRow(values)
+                        }
+                        .frame(width: 360, alignment: .leading)
+                        .padding(.bottom)
                     }
                 }
+            }
+            .padding()
+        }
+    }
 
-                let rows = viewModel.searchQuery.isEmpty ? document.rows : viewModel.filteredRows
-                ForEach(rows) { row in
-                    GridRow {
-                        // Tappable per-row delete — reliable on iPhone, where the
-                        // cell TextFields would otherwise swallow a long-press.
-                        rowActionsMenu(for: row)
-                        ForEach(Array(document.headers.indices), id: \.self) { columnIndex in
-                            TextField(
-                                document.headers[columnIndex].isEmpty ? "Value" : document.headers[columnIndex],
-                                text: cellBinding(rowID: row.id, columnIndex: columnIndex)
-                            )
-                            .textFieldStyle(.roundedBorder)
-                            .frame(minWidth: 140)
-                        }
-                    }
-                    .contextMenu {
-                        // Right-click on Mac (and a secondary path elsewhere).
-                        Button(role: .destructive) {
-                            rowToDelete = row
+    private func headerRow(for document: CSVDocument) -> some View {
+        HStack(spacing: 12) {
+            // Leading column reserved for the per-row actions menu.
+            Color.clear.frame(width: 28, height: 1)
+            ForEach(Array(document.headers.enumerated()), id: \.offset) { index, header in
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        // Sample (not the whole column) so a big file doesn't pay
+                        // an O(rows) scan every time the pinned header redraws.
+                        Image(systemName: ColumnType.infer(from: document.rows.prefix(50).map { $0[index] }).icon)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Button {
+                            viewModel.sortByColumn(index)
                         } label: {
-                            Label("Delete Row", systemImage: "trash")
+                            Text("Sort")
+                                .font(.caption.weight(.medium))
+                        }
+                        .buttonStyle(.borderless)
+
+                        Spacer(minLength: 0)
+
+                        Button {
+                            viewModel.statsColumnIndex = index
+                            viewModel.showingColumnStats = true
+                        } label: {
+                            Image(systemName: "chart.bar")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.borderless)
+
+                        if viewModel.sortColumnIndex == index {
+                            Image(systemName: viewModel.sortAscending ? "chevron.up" : "chevron.down")
+                                .font(.caption)
                         }
                     }
+                    TextField(
+                        "Column \(index + 1)",
+                        text: headerBinding(columnIndex: index)
+                    )
+                    .textFieldStyle(.roundedBorder)
                 }
+                .frame(width: cellWidth, alignment: .leading)
+            }
+        }
+        .padding(.vertical, 4)
+        .background(.background)
+    }
+
+    private func rowView(_ row: CSVRow, document: CSVDocument) -> some View {
+        HStack(spacing: 12) {
+            // Tappable per-row delete — reliable on iPhone, where the cell
+            // TextFields would otherwise swallow a long-press.
+            rowActionsMenu(for: row)
+            ForEach(Array(document.headers.indices), id: \.self) { columnIndex in
+                TextField(
+                    document.headers[columnIndex].isEmpty ? "Value" : document.headers[columnIndex],
+                    text: cellBinding(row: row, columnIndex: columnIndex)
+                )
+                .textFieldStyle(.roundedBorder)
+                .frame(width: cellWidth)
+            }
+        }
+        .contextMenu {
+            // Right-click on Mac (and a secondary path elsewhere).
+            Button(role: .destructive) {
+                rowToDelete = row
+            } label: {
+                Label("Delete Row", systemImage: "trash")
             }
         }
     }
@@ -284,15 +322,12 @@ struct TableView: View {
         .accessibilityLabel("Row actions")
     }
 
-    private func cellBinding(rowID: UUID, columnIndex: Int) -> Binding<String> {
+    /// Binds against the row value already in hand (from ForEach), so the getter
+    /// is O(1) — no per-cell scan of all rows on every render pass.
+    private func cellBinding(row: CSVRow, columnIndex: Int) -> Binding<String> {
         Binding(
-            get: {
-                guard let row = viewModel.document?.rows.first(where: { $0.id == rowID }) else {
-                    return ""
-                }
-                return row[columnIndex]
-            },
-            set: { viewModel.updateCell(rowID: rowID, columnIndex: columnIndex, value: $0) }
+            get: { row.values.indices.contains(columnIndex) ? row.values[columnIndex] : "" },
+            set: { viewModel.updateCell(rowID: row.id, columnIndex: columnIndex, value: $0) }
         )
     }
 
