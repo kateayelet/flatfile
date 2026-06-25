@@ -48,6 +48,11 @@ struct TableView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     HStack(spacing: 12) {
+                        if let pairedNoteURL = viewModel.pairedMarkdownURL {
+                            PairedNoteButton(url: pairedNoteURL) {
+                                Label("Open Paired Note", systemImage: "paperclip")
+                            }
+                        }
                         Button {
                             viewModel.showingFindReplace.toggle()
                         } label: {

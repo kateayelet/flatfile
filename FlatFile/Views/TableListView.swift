@@ -58,7 +58,9 @@ struct TableListView: View {
                         LabeledContent("Path", value: sourceURL.lastPathComponent)
                     }
                     if let pairedMarkdownURL {
-                        LabeledContent("Paired Note", value: pairedMarkdownURL.lastPathComponent)
+                        PairedNoteButton(url: pairedMarkdownURL) {
+                            Label("Open \(pairedMarkdownURL.lastPathComponent)", systemImage: "paperclip")
+                        }
                     }
                 }
             }
