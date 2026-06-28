@@ -82,7 +82,7 @@ Settings**. They are not done yet and two of them block a working Mac build.
 
 - [ ] **iPhone 6.9":** `iphone-6.9/` (1-table, 2-inspect) — captured, 1320x2868
 - [ ] **iPad 13":** `ipad-13/` (1-table, 2-inspect) — captured, 2064x2752
-- [ ] **Mac:** `mac/` (1-table, 2-inspect) — still TODO (see SHOTLIST.md)
+- [ ] **Mac:** `mac/` (1-table, 2-inspect) — captured, 1440x900
 
 ---
 

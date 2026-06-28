@@ -179,6 +179,7 @@ final class TableViewModel {
         sortColumnIndex = nil
         sidecar = FlatFileSidecar()
         errorMessage = nil
+        resetUndoHistory()
     }
 
     #if DEBUG
@@ -221,6 +222,7 @@ final class TableViewModel {
         sortColumnIndex = nil
         sidecar = FlatFileSidecar()
         errorMessage = nil
+        resetUndoHistory()
     }
     #endif
 
@@ -232,6 +234,7 @@ final class TableViewModel {
         sortColumnIndex = nil
         sidecar = FlatFileSidecar()
         errorMessage = nil
+        resetUndoHistory()
     }
 
     func openDocument(at url: URL) {
@@ -247,6 +250,7 @@ final class TableViewModel {
             sidecar = SidecarService.load(for: url) ?? FlatFileSidecar()
             applySidecarSort()
             errorMessage = nil
+            resetUndoHistory()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -324,12 +328,73 @@ final class TableViewModel {
         applySidecarSort()
         // An external add/remove of the companion .md should show up too.
         pairedMarkdownURL = PaperclipHelper.pairedMarkdownURL(for: sourceURL)
+        // Edits were replaced by the on-disk version; old undo steps no longer apply.
+        resetUndoHistory()
+    }
+
+    // MARK: - Undo / Redo
+
+    private struct EditSnapshot {
+        let document: CSVDocument
+        let sortColumnIndex: Int?
+        let sortAscending: Bool
+    }
+
+    private var undoStack: [EditSnapshot] = []
+    private var redoStack: [EditSnapshot] = []
+    private var coalesceKey: String?
+    private let maxUndoDepth = 200
+
+    var canUndo: Bool { !undoStack.isEmpty }
+    var canRedo: Bool { !redoStack.isEmpty }
+
+    /// Capture the pre-mutation state. Pass a `coalesceKey` for continuous edits
+    /// (typing in one cell) so the whole edit collapses into one undo step; pass
+    /// nil for discrete actions (each its own step). Clears the redo stack.
+    private func recordUndo(coalesceKey key: String? = nil) {
+        if let key, key == coalesceKey { return }
+        guard let document else { return }
+        undoStack.append(EditSnapshot(document: document, sortColumnIndex: sortColumnIndex, sortAscending: sortAscending))
+        if undoStack.count > maxUndoDepth { undoStack.removeFirst() }
+        redoStack.removeAll()
+        coalesceKey = key
+    }
+
+    /// Drop history when the open document is replaced (new file, open, template).
+    func resetUndoHistory() {
+        undoStack.removeAll()
+        redoStack.removeAll()
+        coalesceKey = nil
+    }
+
+    func undo() {
+        guard let current = document, let snapshot = undoStack.popLast() else { return }
+        redoStack.append(EditSnapshot(document: current, sortColumnIndex: sortColumnIndex, sortAscending: sortAscending))
+        applyUndoSnapshot(snapshot)
+    }
+
+    func redo() {
+        guard let current = document, let snapshot = redoStack.popLast() else { return }
+        undoStack.append(EditSnapshot(document: current, sortColumnIndex: sortColumnIndex, sortAscending: sortAscending))
+        applyUndoSnapshot(snapshot)
+    }
+
+    private func applyUndoSnapshot(_ snapshot: EditSnapshot) {
+        coalesceKey = nil
+        document = snapshot.document
+        sortColumnIndex = snapshot.sortColumnIndex
+        sortAscending = snapshot.sortAscending
+        #if os(macOS)
+        rawCSVText = snapshot.document.rawCSV
+        #endif
+        scheduleAutosave()
     }
 
     // MARK: - Mutations
 
     func updateHeader(at index: Int, value: String) {
         guard var document else { return }
+        recordUndo(coalesceKey: "header:\(index)")
         let oldHeader = document.headers.indices.contains(index) ? document.headers[index] : nil
         document.updateHeader(at: index, value: value)
         self.document = document
@@ -348,6 +413,7 @@ final class TableViewModel {
 
     func updateCell(rowID: UUID, columnIndex: Int, value: String) {
         guard var document else { return }
+        recordUndo(coalesceKey: "cell:\(rowID):\(columnIndex)")
         document.updateCell(rowID: rowID, columnIndex: columnIndex, value: value)
         self.document = document
         // Only the macOS raw-CSV editor reads rawCSVText; skip the per-edit
@@ -360,6 +426,7 @@ final class TableViewModel {
 
     func appendRow(_ values: [String]) {
         guard var document else { return }
+        recordUndo()
         document.appendRow(values)
         self.document = document
         // Only the macOS raw-CSV editor reads rawCSVText; skip the per-edit
@@ -372,6 +439,7 @@ final class TableViewModel {
 
     func deleteRow(id: UUID) {
         guard var document else { return }
+        recordUndo()
         document.deleteRow(id: id)
         self.document = document
         // Only the macOS raw-CSV editor reads rawCSVText; skip the per-edit
@@ -384,6 +452,7 @@ final class TableViewModel {
 
     func sortByColumn(_ columnIndex: Int) {
         guard var document else { return }
+        recordUndo()
         if sortColumnIndex == columnIndex {
             sortAscending.toggle()
         } else {
@@ -409,6 +478,7 @@ final class TableViewModel {
 
     func replaceOne() {
         guard var document, !findQuery.isEmpty else { return }
+        recordUndo()
         let q = findQuery.lowercased()
         var replaced = false
         for rowIndex in document.rows.indices {
@@ -435,6 +505,7 @@ final class TableViewModel {
 
     func replaceAll() {
         guard var document, !findQuery.isEmpty else { return }
+        recordUndo()
         for rowIndex in document.rows.indices {
             for colIndex in document.rows[rowIndex].values.indices {
                 let cell = document.rows[rowIndex].values[colIndex]
@@ -478,6 +549,7 @@ final class TableViewModel {
 
         _ = headers
         let currentName = document?.name ?? sourceURL?.deletingPathExtension().lastPathComponent ?? "Imported CSV"
+        recordUndo()
         document = CSVDocument(name: currentName, parsedRows: parsed, delimiter: delimiter)
         errorMessage = nil
         scheduleAutosave()

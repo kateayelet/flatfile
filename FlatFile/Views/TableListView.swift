@@ -37,6 +37,33 @@ struct TableListView: View {
                 }
             }
 
+            if !library.recents.isEmpty {
+                Section("Recents") {
+                    ForEach(library.recents) { item in
+                        Button {
+                            onOpenFile(item.url)
+                        } label: {
+                            HStack {
+                                Image(systemName: "clock")
+                                    .foregroundStyle(.secondary)
+                                Text(item.name)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if item.url.standardizedFileURL.path == sourceURL?.standardizedFileURL.path {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.tint)
+                                        .accessibilityLabel("Currently open")
+                                }
+                            }
+                        }
+                    }
+                    Button("Clear Recents", role: .destructive) {
+                        library.clearRecents()
+                    }
+                    .font(.footnote)
+                }
+            }
+
             if library.folders.isEmpty {
                 Section("Folders") {
                     Text("Connect a folder to browse all its CSV files here.")

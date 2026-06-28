@@ -30,7 +30,17 @@ final class LibraryViewModel {
         var name: String { url.lastPathComponent }
     }
 
+    /// A recently opened file, resolved from a persisted bookmark.
+    struct RecentItem: Identifiable {
+        let id: String      // normalized filesystem path
+        let url: URL
+        let bookmark: Data
+        var name: String { url.deletingPathExtension().lastPathComponent }
+    }
+
     private(set) var folders: [Folder] = []
+    private(set) var recents: [RecentItem] = []
+    private static let maxRecents = 12
     var errorMessage: String?
 
     /// Folder URLs whose security scope we currently hold open.
@@ -77,6 +87,56 @@ final class LibraryViewModel {
 
         folders = resolved
         if changed { persist() }
+
+        loadRecents()
+    }
+
+    // MARK: - Recents
+
+    /// Resolve persisted recent-file bookmarks on launch (dropping any that no
+    /// longer resolve), most-recent first.
+    func loadRecents() {
+        let blobs = RecentFilesStore.load()
+        var items: [RecentItem] = []
+        var seen = Set<String>()
+        var changed = false
+
+        for data in blobs {
+            guard let (url, stale) = FolderLibrary.resolveBookmark(data) else { changed = true; continue }
+            let key = normalizedKey(url)
+            if seen.contains(key) { changed = true; continue }
+            seen.insert(key)
+
+            var blob = data
+            if stale {
+                let accessed = url.startAccessingSecurityScopedResource()
+                if let fresh = try? FolderLibrary.makeBookmark(for: url) { blob = fresh; changed = true }
+                if accessed { url.stopAccessingSecurityScopedResource() }
+            }
+            items.append(RecentItem(id: key, url: url, bookmark: blob))
+        }
+
+        recents = items
+        if changed { RecentFilesStore.save(recents.map(\.bookmark)) }
+    }
+
+    /// Record (or bump to the top) a just-opened file. Capped and de-duplicated.
+    func recordRecent(at url: URL) {
+        let key = normalizedKey(url)
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        guard let bookmark = try? FolderLibrary.makeBookmark(for: url) else { return }
+
+        var updated = recents.filter { $0.id != key }
+        updated.insert(RecentItem(id: key, url: url, bookmark: bookmark), at: 0)
+        if updated.count > Self.maxRecents { updated = Array(updated.prefix(Self.maxRecents)) }
+        recents = updated
+        RecentFilesStore.save(recents.map(\.bookmark))
+    }
+
+    func clearRecents() {
+        recents = []
+        RecentFilesStore.save([])
     }
 
     // MARK: - Connect / remove
@@ -158,5 +218,18 @@ final class LibraryViewModel {
         guard let index = scopedURLs.firstIndex(of: url) else { return }
         url.stopAccessingSecurityScopedResource()
         scopedURLs.remove(at: index)
+    }
+}
+
+/// Persists recent-file bookmarks in UserDefaults (app config, never table data).
+enum RecentFilesStore {
+    private static let key = "recentFileBookmarks"
+
+    static func load() -> [Data] {
+        UserDefaults.standard.array(forKey: key) as? [Data] ?? []
+    }
+
+    static func save(_ bookmarks: [Data]) {
+        UserDefaults.standard.set(bookmarks, forKey: key)
     }
 }

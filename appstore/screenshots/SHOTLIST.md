@@ -25,10 +25,12 @@ here; the submission checklist references these exact paths.
 2. `2-inspect.png` — the `invoices` table with the Inspect findings sheet over
    it (you can see the flagged data behind it).
 
-### Mac (`mac/`) — STILL TODO
-1. `1-table.png` — the table in a Mac window.
-2. `2-inspect.png` — the Inspect view.
-Acceptable Mac sizes: 1440x900 (preferred), 1280x800, 2560x1600, 2880x1800.
+### Mac (`mac/`) — DONE, 1440x900
+1. `1-table.png` — sidebar + table + Raw CSV split, the full Mac layout.
+2. `2-inspect.png` — the Inspect findings over the `invoices` table.
+Captured by running the Mac app with `FF_SCREENSHOT`, positioning the window to
+1440x900 via System Events, and `screencapture -R`. Other acceptable Mac sizes:
+1280x800, 2560x1600, 2880x1800.
 
 ## How these were captured (reproducible)
 

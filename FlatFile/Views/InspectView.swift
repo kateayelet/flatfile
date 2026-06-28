@@ -57,5 +57,10 @@ struct InspectView: View {
                 }
             }
         }
+        #if os(macOS)
+        // On macOS a sheet sizes to its content; without a minimum the report
+        // collapses to just the footer. Give it room to show the findings.
+        .frame(minWidth: 480, minHeight: 600)
+        #endif
     }
 }

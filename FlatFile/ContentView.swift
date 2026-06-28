@@ -40,9 +40,16 @@ struct ContentView: View {
     var body: some View {
         Group {
             #if DEBUG
-            // In screenshot mode, force the table-forward layout so the captured
-            // screen is the table itself rather than the collapsed sidebar.
-            if screenshotMode != nil || horizontalSizeClass == .compact {
+            // In screenshot mode: iOS captures the table directly (compact), while
+            // macOS uses the real sidebar+table split so the window looks authentic
+            // and fills its width rather than leaving the table alone on the left.
+            if screenshotMode != nil {
+                #if os(macOS)
+                splitLayout
+                #else
+                compactLayout
+                #endif
+            } else if horizontalSizeClass == .compact {
                 compactLayout
             } else {
                 splitLayout
@@ -62,8 +69,10 @@ struct ContentView: View {
                 switch screenshotMode {
                 case "demo":
                     viewModel.loadDemoDocument()
+                    columnVisibility = .all
                 case "inspect":
                     viewModel.loadDemoDocument(withIssues: true)
+                    columnVisibility = .all
                     viewModel.showingInspect = true
                 default:
                     viewModel.createNewDocument(name: "Untitled")
@@ -116,6 +125,7 @@ struct ContentView: View {
             case .success(let urls):
                 if let url = urls.first {
                     viewModel.openDocument(at: url)
+                    library.recordRecent(at: url)
                     columnVisibility = .detailOnly
                 }
             case .failure(let error):
@@ -237,6 +247,7 @@ struct ContentView: View {
             onOpenFile: { url in
                 showingWorkspace = false
                 viewModel.openDocument(at: url)
+                library.recordRecent(at: url)
                 columnVisibility = .detailOnly
             },
             onSave: {

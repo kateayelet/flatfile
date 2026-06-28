@@ -46,6 +46,20 @@ struct TableView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     HStack(spacing: 12) {
+                        Button {
+                            viewModel.undo()
+                        } label: {
+                            Label("Undo", systemImage: "arrow.uturn.backward")
+                        }
+                        .disabled(!viewModel.canUndo)
+                        .keyboardShortcut("z", modifiers: .command)
+                        Button {
+                            viewModel.redo()
+                        } label: {
+                            Label("Redo", systemImage: "arrow.uturn.forward")
+                        }
+                        .disabled(!viewModel.canRedo)
+                        .keyboardShortcut("z", modifiers: [.command, .shift])
                         companionControls()
                         Button {
                             viewModel.showingFindReplace.toggle()
