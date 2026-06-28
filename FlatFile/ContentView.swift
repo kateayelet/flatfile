@@ -165,6 +165,10 @@ struct ContentView: View {
         NavigationStack {
             TableView(viewModel: viewModel, sourceInConnectedFolder: sourceInConnectedFolder)
                 .toolbar {
+                    // `compactLayout` only runs on iOS at runtime (Mac uses the
+                    // split layout), but it must still compile for macOS, where
+                    // `.topBarLeading` is unavailable.
+                    #if os(iOS)
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
                             showingWorkspace = true
@@ -172,6 +176,7 @@ struct ContentView: View {
                             Label("Workspace", systemImage: "sidebar.left")
                         }
                     }
+                    #endif
                 }
         }
     }
@@ -222,5 +227,30 @@ struct CSVFileDocument: FileDocument {
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
         FileWrapper(regularFileWithContents: Data(text.utf8))
+    }
+}
+
+// MARK: - Cross-platform modifiers
+// A handful of SwiftUI modifiers are iOS-only. These wrappers apply them on iOS
+// and become no-ops on macOS so the universal target compiles for both.
+extension View {
+    /// Inline navigation bar title on iOS; no-op on macOS where it is unavailable.
+    @ViewBuilder
+    func inlineNavigationTitle() -> some View {
+        #if os(iOS)
+        navigationBarTitleDisplayMode(.inline)
+        #else
+        self
+        #endif
+    }
+
+    /// Medium/large sheet detents on iOS; no-op on macOS where detents are unavailable.
+    @ViewBuilder
+    func mediumLargeSheetDetents() -> some View {
+        #if os(iOS)
+        presentationDetents([.medium, .large])
+        #else
+        self
+        #endif
     }
 }

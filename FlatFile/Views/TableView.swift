@@ -100,7 +100,7 @@ struct TableView: View {
                         headerName: document.headers[index],
                         stats: stats
                     )
-                    .presentationDetents([.medium, .large])
+                    .mediumLargeSheetDetents()
                 }
             }
         } else {
