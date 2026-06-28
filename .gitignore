@@ -20,3 +20,6 @@ FlatFile copy.xcodeproj/
 .DS_Store
 *.swp
 *~
+
+# Coverage / profiling artifacts
+*.profraw
