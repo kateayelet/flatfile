@@ -15,7 +15,6 @@ struct TableView: View {
     /// Companion controls are hidden otherwise (the writes would fail).
     var sourceInConnectedFolder = false
     @State private var rowToDelete: CSVRow?
-    @State private var inspectionFindings: [InspectionFinding] = []
 
     /// Fixed column width keeps the pinned header aligned with virtualized rows.
     private let cellWidth: CGFloat = 160
@@ -54,7 +53,6 @@ struct TableView: View {
                             Label("Find & Replace", systemImage: "magnifyingglass")
                         }
                         Button {
-                            inspectionFindings = viewModel.runInspection()
                             viewModel.showingInspect = true
                         } label: {
                             Label("Inspect", systemImage: "checkmark.seal")
@@ -85,7 +83,7 @@ struct TableView: View {
                 }
             }
             .sheet(isPresented: $viewModel.showingInspect) {
-                InspectView(findings: inspectionFindings) {
+                InspectView(findings: viewModel.runInspection()) {
                     viewModel.showingInspect = false
                 }
             }

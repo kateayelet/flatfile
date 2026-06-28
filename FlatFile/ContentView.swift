@@ -24,18 +24,53 @@ struct ContentView: View {
     @State private var newTableName = ""
     @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
 
+    #if DEBUG
+    /// Screenshot mode for App Store capture, driven by the FF_SCREENSHOT env var
+    /// (passed via SIMCTL_CHILD_FF_SCREENSHOT) or a launch argument. nil in normal use.
+    private var screenshotMode: String? {
+        if let env = ProcessInfo.processInfo.environment["FF_SCREENSHOT"], !env.isEmpty {
+            return env
+        }
+        if CommandLine.arguments.contains("--screenshot-inspect") { return "inspect" }
+        if CommandLine.arguments.contains("--screenshot-demo") { return "demo" }
+        return nil
+    }
+    #endif
+
     var body: some View {
         Group {
+            #if DEBUG
+            // In screenshot mode, force the table-forward layout so the captured
+            // screen is the table itself rather than the collapsed sidebar.
+            if screenshotMode != nil || horizontalSizeClass == .compact {
+                compactLayout
+            } else {
+                splitLayout
+            }
+            #else
             if horizontalSizeClass == .compact {
                 compactLayout
             } else {
                 splitLayout
             }
+            #endif
         }
         .onAppear {
             library.loadConnectedFolders()
             if viewModel.document == nil {
+                #if DEBUG
+                switch screenshotMode {
+                case "demo":
+                    viewModel.loadDemoDocument()
+                case "inspect":
+                    viewModel.loadDemoDocument(withIssues: true)
+                    viewModel.showingInspect = true
+                default:
+                    viewModel.createNewDocument(name: "Untitled")
+                }
+                #else
                 viewModel.createNewDocument(name: "Untitled")
+                #endif
             }
         }
         .sheet(isPresented: $showingWorkspace) {

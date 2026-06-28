@@ -181,6 +181,49 @@ final class TableViewModel {
         errorMessage = nil
     }
 
+    #if DEBUG
+    /// Seeds a populated, realistic table for App Store screenshot capture.
+    /// Only reachable via the FF_SCREENSHOT env var / launch argument in DEBUG builds.
+    /// `withIssues` loads a dataset with deliberate data-quality oddities so the
+    /// Inspect view has findings to show.
+    func loadDemoDocument(withIssues: Bool = false) {
+        let clean: [[String]] = [
+            ["date", "category", "description", "amount", "type"],
+            ["2026-01-03", "Income", "Client invoice 0042", "1850.00", "income"],
+            ["2026-01-05", "Office", "Standing desk", "389.00", "expense"],
+            ["2026-01-08", "Software", "Design tools", "24.00", "expense"],
+            ["2026-01-11", "Travel", "Train to Oakland", "18.50", "expense"],
+            ["2026-01-14", "Food", "Team lunch", "62.40", "expense"],
+            ["2026-01-17", "Income", "Workshop fee", "450.00", "income"],
+            ["2026-01-19", "Utilities", "Internet", "70.00", "expense"],
+            ["2026-01-22", "Hardware", "USB-C cables", "11.40", "expense"],
+            ["2026-01-25", "Books", "Reference set", "128.75", "expense"],
+            ["2026-01-28", "Income", "Client invoice 0043", "920.00", "income"],
+            ["2026-01-30", "Fees", "Bank charge", "12.00", "expense"],
+            ["2026-02-02", "Travel", "Conference pass", "299.00", "expense"],
+            ["2026-02-04", "Food", "Groceries", "94.20", "expense"],
+        ]
+        // Deliberately imperfect: leading-zero IDs and ZIPs (spreadsheets corrupt
+        // these), a mixed date format, a blank cell, and an exact duplicate row.
+        let issues: [[String]] = [
+            ["invoice_id", "date", "client", "amount", "zip"],
+            ["0042", "2026-01-03", "Acme Co", "1850.00", "07034"],
+            ["0043", "01/15/2026", "Globex", "920.00", "94107"],
+            ["0044", "2026-01-22", "Initech", "", "10001"],
+            ["0045", "2026-02-02", "Umbrella Corp", "299.00", "60616"],
+            ["0045", "2026-02-02", "Umbrella Corp", "299.00", "60616"],
+            ["0046", "2026-02-09", "Soylent", "1290.00", "02139"],
+        ]
+        let matrix = withIssues ? issues : clean
+        document = CSVDocument(name: withIssues ? "invoices" : "field-budget", parsedRows: matrix, delimiter: ",")
+        sourceURL = nil
+        rawCSVText = document?.rawCSV ?? ""
+        sortColumnIndex = nil
+        sidecar = FlatFileSidecar()
+        errorMessage = nil
+    }
+    #endif
+
     func createFromTemplate(_ template: CSVTemplate, name: String) {
         let rows = template.exampleRows.map { CSVRow(values: $0) }
         document = CSVDocument(name: name, headers: template.headers, rows: rows, delimiter: ",")

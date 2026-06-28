@@ -80,9 +80,9 @@ Settings**. They are not done yet and two of them block a working Mac build.
 
 ### Screenshots (drag in from appstore/screenshots/ — see SHOTLIST.md)
 
-- [ ] **iPhone 6.9":** `iphone-6.9/` (1-table, 2-folder, 3-inspect)
-- [ ] **iPad 13":** `ipad-13/` (1-table, 2-companion)
-- [ ] **Mac:** `mac/` (1-table, 2-inspect)
+- [ ] **iPhone 6.9":** `iphone-6.9/` (1-table, 2-inspect) — captured, 1320x2868
+- [ ] **iPad 13":** `ipad-13/` (1-table, 2-inspect) — captured, 2064x2752
+- [ ] **Mac:** `mac/` (1-table, 2-inspect) — still TODO (see SHOTLIST.md)
 
 ---
 
