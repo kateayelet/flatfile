@@ -10,6 +10,10 @@
 import SwiftUI
 
 struct PaywallView: View {
+    /// A sentence about the user's own file (e.g. what Inspect just found in
+    /// it), shown under the header. The strongest pitch is their own data.
+    var teaser: String?
+
     @Environment(StoreManager.self) private var store
     @Environment(\.dismiss) private var dismiss
 
@@ -85,6 +89,15 @@ struct PaywallView: View {
             Text("One-time purchase. No subscription.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+            if let teaser {
+                Text(teaser)
+                    .font(.callout.weight(.medium))
+                    .multilineTextAlignment(.center)
+                    .padding(12)
+                    .frame(maxWidth: 460)
+                    .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                    .padding(.top, 4)
+            }
         }
         .padding(.top, 8)
     }
@@ -115,7 +128,7 @@ struct PaywallView: View {
                     if store.isWorking {
                         ProgressView()
                     } else {
-                        Text("Unlock Pro — \(store.displayPrice)")
+                        Text("Unlock Pro for \(store.displayPrice)")
                             .fontWeight(.semibold)
                     }
                 }

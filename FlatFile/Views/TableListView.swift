@@ -18,6 +18,9 @@ struct TableListView: View {
     let onOpenFile: (URL) -> Void
     let onSave: () -> Void
 
+    @Environment(StoreManager.self) private var store
+    @State private var showingPaywall = false
+
     var body: some View {
         List {
             Section("Workspace") {
@@ -76,6 +79,23 @@ struct TableListView: View {
                 }
             }
 
+            // A second, quiet path to the paywall: someone who never opens the
+            // table toolbar should still learn Pro exists. Gone once purchased.
+            if !store.isPro {
+                Section {
+                    Button {
+                        showingPaywall = true
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("FlatFile Pro", systemImage: "checkmark.seal")
+                            Text("Inspect, Find & Replace, and Column Stats. One-time unlock, no subscription.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+
             if let document {
                 Section("Current File") {
                     LabeledContent("Name", value: document.name)
@@ -93,6 +113,9 @@ struct TableListView: View {
             }
         }
         .navigationTitle("FlatFile")
+        .sheet(isPresented: $showingPaywall) {
+            PaywallView()
+        }
     }
 
     @ViewBuilder

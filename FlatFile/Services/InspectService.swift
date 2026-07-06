@@ -9,7 +9,7 @@
 
 import Foundation
 
-enum InspectService {
+nonisolated enum InspectService {
     private static let maxSamples = 5
 
     /// `rawParsedRows` is the file re-parsed without width normalization (header

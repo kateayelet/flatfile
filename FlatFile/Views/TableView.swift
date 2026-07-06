@@ -17,6 +17,10 @@ struct TableView: View {
     @Environment(StoreManager.self) private var store
     @State private var rowToDelete: CSVRow?
     @State private var showingPaywall = false
+    @State private var paywallTeaser: String?
+    /// True while the paywall on screen was opened from Inspect, so a purchase
+    /// keeps its promise: the results sheet opens as soon as the paywall closes.
+    @State private var pendingInspectAfterUnlock = false
 
     /// Fixed column width keeps the pinned header aligned with virtualized rows.
     private let cellWidth: CGFloat = 160
@@ -69,7 +73,22 @@ struct TableView: View {
                             proLabel("Find & Replace", systemImage: "magnifyingglass")
                         }
                         Button {
-                            gatePro { viewModel.showingInspect = true }
+                            if store.isPro {
+                                viewModel.showingInspect = true
+                            } else {
+                                // Free taps still run the checks, so the paywall
+                                // can speak to this file; only the details are paid.
+                                // The paywall opens immediately; the teaser line
+                                // fills in when the scan finishes off-main.
+                                paywallTeaser = nil
+                                pendingInspectAfterUnlock = true
+                                showingPaywall = true
+                                let snapshot = viewModel.document
+                                Task.detached(priority: .userInitiated) {
+                                    let teaser = TableView.inspectTeaser(for: snapshot)
+                                    await MainActor.run { paywallTeaser = teaser }
+                                }
+                            }
                         } label: {
                             proLabel("Inspect", systemImage: "checkmark.seal")
                         }
@@ -117,8 +136,12 @@ struct TableView: View {
                     .mediumLargeSheetDetents()
                 }
             }
-            .sheet(isPresented: $showingPaywall) {
-                PaywallView()
+            .sheet(isPresented: $showingPaywall, onDismiss: {
+                let openInspect = pendingInspectAfterUnlock && store.isPro
+                pendingInspectAfterUnlock = false
+                if openInspect { viewModel.showingInspect = true }
+            }) {
+                PaywallView(teaser: paywallTeaser)
             }
         } else {
             ContentUnavailableView(
@@ -130,15 +153,79 @@ struct TableView: View {
     }
 
     /// Runs a Pro-only action, or opens the paywall when the app isn't unlocked.
-    /// The single gate for the power tools (Inspect, Find & Replace, Column Stats).
+    /// The gate for Find & Replace and Column Stats; Inspect gates inline above
+    /// so it can attach a file-specific teaser to the paywall.
     private func gatePro(_ action: () -> Void) {
-        if store.isPro { action() } else { showingPaywall = true }
+        if store.isPro {
+            action()
+        } else {
+            paywallTeaser = nil
+            pendingInspectAfterUnlock = false
+            showingPaywall = true
+        }
     }
 
-    /// A toolbar label that shows a small lock badge until Pro is unlocked, so the
-    /// gated tools read as premium before they're tapped.
-    private func proLabel(_ titleKey: LocalizedStringKey, systemImage: String) -> some View {
-        Label(titleKey, systemImage: store.isPro ? systemImage : "lock")
+    /// One sentence about what Inspect just found in the open file, for the
+    /// paywall. Names the finding categories but keeps counts and locations
+    /// paid. Scans the in-memory table only, never the file on disk, so the
+    /// ragged-rows check is skipped here; the paid Inspect view includes it.
+    private nonisolated static func inspectTeaser(for document: CSVDocument?) -> String {
+        guard let document else {
+            return "Inspect checks every table for data-quality issues before they spread."
+        }
+        let findings = InspectService.inspect(document, rawParsedRows: nil)
+        let name = "\"\(document.name)\""
+        guard !findings.isEmpty else {
+            return "Inspect checked \(name) and found no issues today."
+        }
+        let clauses = findings.map { clause(for: $0.kind) }
+        let listed: String
+        switch clauses.count {
+        case 1:
+            listed = clauses[0]
+        case 2:
+            listed = "\(clauses[0]) and \(clauses[1])"
+        default:
+            listed = "\(clauses[0]), \(clauses[1]), and \(clauses.count - 2) more issue\(clauses.count == 3 ? "" : "s")"
+        }
+        return "Inspect found \(listed) in \(name). Unlock Pro to see the details."
+    }
+
+    /// Finding categories phrased as clauses so they read inside a sentence
+    /// (the InspectionFinding titles are headings and do not).
+    private nonisolated static func clause(for kind: InspectionFinding.Kind) -> String {
+        switch kind {
+        case .raggedRows: return "ragged rows"
+        case .duplicateRows: return "duplicate rows"
+        case .emptyInFullColumn: return "blank cells in populated columns"
+        case .spreadsheetUnsafe: return "numbers spreadsheets would corrupt"
+        case .mixedDateFormats: return "mixed date formats"
+        case .untrimmedWhitespace: return "stray leading or trailing spaces"
+        }
+    }
+
+    /// Locked tools keep their real icon and pick up a small PRO capsule, so
+    /// they read as purchasable power tools rather than unavailable actions.
+    @ViewBuilder
+    private func proLabel(_ title: String, systemImage: String) -> some View {
+        if store.isPro {
+            Label(title, systemImage: systemImage)
+        } else {
+            HStack(spacing: 4) {
+                Image(systemName: systemImage)
+                proBadge
+            }
+            .accessibilityLabel("\(title) (Pro)")
+        }
+    }
+
+    private var proBadge: some View {
+        Text("PRO")
+            .font(.system(size: 9, weight: .bold))
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1.5)
+            .background(.tint.opacity(0.15), in: Capsule())
+            .foregroundStyle(.tint)
     }
 
     /// Table alone, or table + companion note pane side by side on wide layouts.
@@ -295,11 +382,17 @@ struct TableView: View {
                                 viewModel.showingColumnStats = true
                             }
                         } label: {
-                            Image(systemName: store.isPro ? "chart.bar" : "chart.bar.xaxis")
-                                .font(.caption)
-                                .foregroundStyle(store.isPro ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                            HStack(spacing: 2) {
+                                Image(systemName: "chart.bar")
+                                    .font(.caption)
+                                    .foregroundStyle(store.isPro ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                                if !store.isPro {
+                                    proBadge
+                                }
+                            }
                         }
                         .buttonStyle(.borderless)
+                        .accessibilityLabel(store.isPro ? "Column stats" : "Column stats (Pro)")
 
                         if viewModel.sortColumnIndex == index {
                             Image(systemName: viewModel.sortAscending ? "chevron.up" : "chevron.down")

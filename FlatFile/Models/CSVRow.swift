@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct CSVRow: Identifiable, Hashable {
+nonisolated struct CSVRow: Identifiable, Hashable {
     let id: UUID
     var values: [String]
 
