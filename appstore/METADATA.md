@@ -1,8 +1,10 @@
 # FlatFile — App Store Submission Package
 
 Everything here is ready to paste into App Store Connect. FlatFile is a universal
-app: iPhone, iPad, and Mac, one purchase. Every table is a plain `.csv` file in
-the user's own storage — there is no account and no app sync.
+app: iPhone, iPad, and Mac. It is free to download and edit CSVs; a single
+one-time in-app purchase (FlatFile Pro, $9.99) unlocks the power tools. Every
+table is a plain `.csv` file in the user's own storage — there is no account and
+no app sync.
 
 Fields map to the "App Information" page (set once for the app) and the
 per-version "Distribution" pages (one for iOS, one for macOS).
@@ -49,16 +51,22 @@ notation, anything that looks like a date gets reformatted. FlatFile does none o
 that. Every cell is text exactly as you typed it. What you see is what is in the
 file.
 
-WHAT YOU GET
+FREE, ALWAYS
 
 - A clean table view with inline editing. Tap a cell, type, done.
 - Auto-save after every edit, written safely so an interrupted save never
   corrupts your file.
 - Open a whole folder of CSVs and browse them, or open a single file.
 - Add and delete rows, sort and search, all on the plain file.
-- Inspect view that surfaces data-quality issues — duplicate rows, empty cells,
-  mixed formats — and never auto-fixes them behind your back.
 - Smooth on big files: thousands of rows scroll without lag.
+- Export or share any table as a standard `.csv`.
+
+FLATFILE PRO (one-time $9.99, no subscription)
+
+- Inspect: data-quality checks that surface duplicate rows, empty cells, and
+  mixed formats — and never auto-fix them behind your back.
+- Find & Replace across the whole table at once.
+- Column Stats & Schema: per-column summaries plus a saved display name and type.
 
 YOUR DATA BELONGS TO YOU
 
@@ -67,7 +75,6 @@ YOUR DATA BELONGS TO YOU
   now.
 - Files live wherever you keep them through the Files app on iOS and Finder on
   Mac. FlatFile uses your storage, not its own.
-- Export or share any table as a standard `.csv`.
 
 PAIRS WITH FLATNOTE
 
@@ -90,8 +97,8 @@ csv,editor,table,spreadsheet,data,plain text,import,export,offline,files,delimit
 ## What's New
 
 **iOS (version 1.0):** First release. Plain `.csv` table editing with inline
-edits, auto-save, a folder browser, sort and search, an Inspect data-quality
-view, FlatNote pairing, and export to standard `.csv`.
+edits, auto-save, a folder browser, sort and search, FlatNote pairing, and export
+to standard `.csv`. FlatFile Pro adds Inspect, Find & Replace, and Column Stats.
 
 **macOS (version 1.0):** FlatFile runs natively on Mac. Open and edit your CSV
 files directly in Finder-backed folders, with the same zero-inference editing as
@@ -114,19 +121,42 @@ export-compliance prompt does not appear (see SUBMISSION_CHECKLIST.md — FlatFi
 uses `GENERATE_INFOPLIST_FILE`, so this is a build setting, not an Info.plist
 entry).
 
-**EU trader status:** App Store Connect requires you to declare trader status
-(EU Digital Services Act) before the app can be distributed in the EU. Set this
-under App Information. If you are an individual not acting as a trader, declare
-accordingly, or limit availability to exclude the EU.
+**EU trader status:** Decision made — **exclude the EU from availability** for
+v1 (no trader declaration). Set this under Pricing and Availability → remove all
+EU territories. Revisit if you later want EU distribution (requires the trader
+declaration under App Information).
 
 ---
 
 ## Pricing
 
-Decision pending — see LAUNCH.md ("Pricing decision"). Recommended for launch:
-**paid up front, one-time ~$9.99** (no in-app purchase code to build). A free
-tier with a $9.99 unlock would require StoreKit work that is not built yet and is
-best done as a fast-follow update.
+**Decision made — freemium.** Free to download; a single one-time in-app purchase
+unlocks the power tools. StoreKit 2 code is built (`StoreManager.swift`,
+`PaywallView.swift`).
+
+- **App price:** Free (Tier 0).
+- **In-App Purchase:** one non-consumable, $9.99 (USD Tier 10). See the In-App
+  Purchase section below for the exact fields to enter in App Store Connect.
+- **Availability:** all territories **except the EU** (see EU trader status).
+
+## In-App Purchase (create in App Store Connect → Monetization → In-App Purchases)
+
+- **Type:** Non-Consumable
+- **Reference Name:** FlatFile Pro
+- **Product ID:** `aftrveil.FlatFile.pro`  ← must match `StoreManager.proProductID` exactly
+- **Price:** $9.99 (USD tier)
+- **Display Name (localization, en-US):** FlatFile Pro
+- **Description (localization, en-US):** Unlock the FlatFile power tools: Inspect
+  data quality, Find & Replace across the table, and Column Stats & schema. A
+  one-time purchase, no subscription.
+- **Review screenshot:** App Review requires one screenshot of the IAP. Use the
+  paywall screen (run the app, tap Inspect while locked) or the `inspect` shot.
+- **Availability:** match the app — all territories except the EU.
+
+The IAP must be **submitted together with the app's first version** (attach it to
+the version, or App Review will not see it). For local testing before the product
+exists in App Store Connect, the repo ships `FlatFile.storekit` — enable it in the
+scheme (see SUBMISSION_CHECKLIST.md step 0).
 
 ---
 

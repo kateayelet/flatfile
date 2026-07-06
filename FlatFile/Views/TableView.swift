@@ -14,7 +14,9 @@ struct TableView: View {
     /// security scope that lets us read/write a companion .md and its siblings.
     /// Companion controls are hidden otherwise (the writes would fail).
     var sourceInConnectedFolder = false
+    @Environment(StoreManager.self) private var store
     @State private var rowToDelete: CSVRow?
+    @State private var showingPaywall = false
 
     /// Fixed column width keeps the pinned header aligned with virtualized rows.
     private let cellWidth: CGFloat = 160
@@ -62,14 +64,14 @@ struct TableView: View {
                         .keyboardShortcut("z", modifiers: [.command, .shift])
                         companionControls()
                         Button {
-                            viewModel.showingFindReplace.toggle()
+                            gatePro { viewModel.showingFindReplace.toggle() }
                         } label: {
-                            Label("Find & Replace", systemImage: "magnifyingglass")
+                            proLabel("Find & Replace", systemImage: "magnifyingglass")
                         }
                         Button {
-                            viewModel.showingInspect = true
+                            gatePro { viewModel.showingInspect = true }
                         } label: {
-                            Label("Inspect", systemImage: "checkmark.seal")
+                            proLabel("Inspect", systemImage: "checkmark.seal")
                         }
                         ShareLink(
                             item: document.rawCSV,
@@ -115,6 +117,9 @@ struct TableView: View {
                     .mediumLargeSheetDetents()
                 }
             }
+            .sheet(isPresented: $showingPaywall) {
+                PaywallView()
+            }
         } else {
             ContentUnavailableView(
                 "No CSV Selected",
@@ -122,6 +127,18 @@ struct TableView: View {
                 description: Text("Import a CSV file to start editing.")
             )
         }
+    }
+
+    /// Runs a Pro-only action, or opens the paywall when the app isn't unlocked.
+    /// The single gate for the power tools (Inspect, Find & Replace, Column Stats).
+    private func gatePro(_ action: () -> Void) {
+        if store.isPro { action() } else { showingPaywall = true }
+    }
+
+    /// A toolbar label that shows a small lock badge until Pro is unlocked, so the
+    /// gated tools read as premium before they're tapped.
+    private func proLabel(_ titleKey: LocalizedStringKey, systemImage: String) -> some View {
+        Label(titleKey, systemImage: store.isPro ? systemImage : "lock")
     }
 
     /// Table alone, or table + companion note pane side by side on wide layouts.
@@ -273,11 +290,14 @@ struct TableView: View {
                         Spacer(minLength: 0)
 
                         Button {
-                            viewModel.statsColumnIndex = index
-                            viewModel.showingColumnStats = true
+                            gatePro {
+                                viewModel.statsColumnIndex = index
+                                viewModel.showingColumnStats = true
+                            }
                         } label: {
-                            Image(systemName: "chart.bar")
+                            Image(systemName: store.isPro ? "chart.bar" : "chart.bar.xaxis")
                                 .font(.caption)
+                                .foregroundStyle(store.isPro ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                         }
                         .buttonStyle(.borderless)
 

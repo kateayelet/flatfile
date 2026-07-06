@@ -29,6 +29,11 @@ Settings**. They are not done yet and two of them block a working Mac build.
       targets; keep automatic signing.
 - [ ] **Unique build number** per upload. Bump `CURRENT_PROJECT_VERSION` for each
       new archive (it is currently 1).
+- [ ] **StoreKit local testing (optional but recommended).** To exercise the Pro
+      unlock in the simulator before the IAP exists in App Store Connect: Product →
+      Scheme → Edit Scheme → Run → Options → **StoreKit Configuration** →
+      `FlatFile.storekit`. Buy/restore then works against the local config. Turn it
+      off (or leave it — it is ignored in release builds) before archiving.
 
 ---
 
@@ -57,8 +62,8 @@ Settings**. They are not done yet and two of them block a working Mac build.
 - [ ] **Category:** Primary Productivity, Secondary Utilities
 - [ ] **Content Rights:** does not use third-party content.
 - [ ] **Age Rating:** answer all No → 4+.
-- [ ] **EU Trader status:** declare individual/trader as applies, or exclude the
-      EU from availability.
+- [ ] **EU Trader status:** DECISION — **exclude the EU** for v1. No trader
+      declaration needed; instead remove EU territories in step 5 (Availability).
 
 ---
 
@@ -86,14 +91,33 @@ Settings**. They are not done yet and two of them block a working Mac build.
 
 ---
 
+## 4b. In-App Purchase (FlatFile Pro)
+
+Do this before submitting; the IAP must ship attached to the first version.
+
+- [ ] **Monetization → In-App Purchases → +**, type **Non-Consumable**.
+- [ ] **Reference Name:** FlatFile Pro
+- [ ] **Product ID:** `aftrveil.FlatFile.pro` (must match the code exactly).
+- [ ] **Price:** $9.99.
+- [ ] **Localization (en-US):** Display Name "FlatFile Pro"; description from
+      METADATA.md (In-App Purchase section).
+- [ ] **Review screenshot:** attach a shot of the paywall (run the app and tap
+      Inspect while locked, or reuse the inspect screenshot).
+- [ ] **Availability:** all territories except the EU (match the app).
+- [ ] **Attach the IAP to the version** on each platform's page ("In-App
+      Purchases and Subscriptions" section) so App Review evaluates it.
+
+---
+
 ## 5. Build, pricing, release
 
 - [ ] **Build:** attach the processed iOS build and macOS build to each version.
 - [ ] **Export compliance:** should not prompt (set in step 0). If asked, answer
       "No" to non-exempt encryption.
-- [ ] **Pricing:** set per the LAUNCH.md decision. Recommended: one-time ~$9.99.
-- [ ] **Availability:** all territories, or exclude the EU if you did not declare
-      trader status.
+- [ ] **Pricing:** app is **Free** (Tier 0). Revenue comes from the $9.99 IAP
+      above.
+- [ ] **Availability:** all territories **except the EU** (remove every EU
+      territory — no trader declaration for v1).
 - [ ] **Release:** "Automatically release after review" is simplest.
 
 ---

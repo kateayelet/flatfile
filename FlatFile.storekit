@@ -1,0 +1,35 @@
+{
+  "identifier" : "B1A7F4C2-0001-4E00-9F10-FLATFILEPRO01",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "B1A7F4C2-0002-4E00-9F10-FLATFILEPRO02",
+      "localizations" : [
+        {
+          "description" : "Unlock the FlatFile power tools: Inspect data quality, Find & Replace across the table, and Column Stats & schema. One-time purchase, no subscription.",
+          "displayName" : "FlatFile Pro",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "aftrveil.FlatFile.pro",
+      "referenceName" : "FlatFile Pro",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "0",
+    "_developerTeamID" : "SMQ3T59TFL",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 0,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

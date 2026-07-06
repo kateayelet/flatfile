@@ -19,26 +19,32 @@ App Store Connect walk-through is `appstore/SUBMISSION_CHECKLIST.md`.
   - `appstore/screenshots/SHOTLIST.md` — exact sizes and the shot list
   - `README.md` and MIT `LICENSE` in the repo root
 
-## Two decisions to make
+## Two decisions — both made
 
-### 1. Pricing decision
-The issue calls for "one-time ~$9.99 with a genuinely useful free tier." A free
-tier on a paid app means free download plus a one-time in-app unlock, which needs
-StoreKit code that is **not built**. Two paths:
+### 1. Pricing — freemium (DONE, code built)
+Free to download and edit CSVs; a single one-time **$9.99** in-app purchase
+(FlatFile Pro, non-consumable) unlocks the power tools. The StoreKit 2 flow is
+built and compiling:
 
-- **Recommended for launch:** ship **paid up front at $9.99**, no IAP. Zero extra
-  code, fastest to the store. Add a free tier in a fast-follow update if you want
-  it.
-- **Freemium:** free download with a $9.99 unlock. More polished funnel, but
-  needs a StoreKit purchase flow, a "what's free vs paid" line drawn in the app,
-  and receipt handling. File this as its own issue if you choose it.
+- `FlatFile/Services/StoreManager.swift` — the unlock state, purchase, restore,
+  and live entitlement tracking. `isPro` is the single source of truth.
+- `FlatFile/Views/PaywallView.swift` — the unlock screen.
+- `FlatFile.storekit` — local StoreKit test config for the simulator.
 
-The metadata and checklist are written for the paid-up-front path; switching to
-free is a one-field change in App Store Connect plus the IAP work.
+**Free vs Pro line** (each is a one-line change in `TableView.swift` if you want
+to move a feature):
+- **Free forever:** open folders, edit any `.csv`, add/delete rows, sort, search,
+  share/export, FlatNote paperclip + companion notes.
+- **Pro ($9.99):** Inspect (data quality), Find & Replace, Column Stats & schema.
 
-### 2. EU trader status
-Required before EU distribution (Digital Services Act). Declare individual/trader
-in App Store Connect under App Information, or exclude the EU from availability.
+You still must **create the IAP in App Store Connect** (product ID
+`aftrveil.FlatFile.pro`) and attach it to the first version — see
+`appstore/SUBMISSION_CHECKLIST.md` section 4b.
+
+### 2. EU trader status — exclude the EU (DONE)
+v1 excludes the EU from availability, so no Digital Services Act trader
+declaration is needed. Remove all EU territories under Pricing and Availability
+(SUBMISSION_CHECKLIST.md step 5). Revisit if you later want EU distribution.
 
 ## What you still need to supply
 
