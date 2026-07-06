@@ -10,23 +10,18 @@ Legal entity / team: aftrveil (SMQ3T59TFL). Bundle ID: aftrveil.FlatFile.
 ## 0. Before you start — build-setting fixes (do these in Xcode first)
 
 These are checkbox-level changes in **Signing & Capabilities** and **Build
-Settings**. They are not done yet and two of them block a working Mac build.
+Settings**.
 
-- [ ] **Mac file saving (BLOCKER).** App Sandbox is on with **User Selected
-      Files = Read Only**. FlatFile auto-saves, so on Mac it cannot write to the
-      files the user picks. In Signing & Capabilities → App Sandbox, set
-      **User Selected File** to **Read/Write** (build setting
-      `ENABLE_USER_SELECTED_FILES = readwrite`).
-- [ ] **Drop the visionOS target (recommended).** `SUPPORTED_PLATFORMS` includes
-      `xros xrsimulator` and there is an unpolished visionOS deployment target.
-      Unless you intend to test and ship a native visionOS build, remove
-      `xros`/`xrsimulator` from Supported Destinations so review only covers
-      iPhone, iPad, and Mac.
+- [x] **Mac file saving (BLOCKER).** Done: `ENABLE_USER_SELECTED_FILES =
+      readwrite` is set on the app target.
+- [x] **Drop the visionOS target (recommended).** Done for the app target
+      (`SUPPORTED_PLATFORMS = iphoneos iphonesimulator macosx`). Only the
+      Tests/UITests targets still list `xros`; they do not ship.
 - [ ] **Export compliance.** Add build setting
       `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` (or set it in the Info
-      tab) so the export-compliance prompt never appears on upload.
-- [ ] **Signing team.** Set **DEVELOPMENT_TEAM** to aftrveil (SMQ3T59TFL) on all
-      targets; keep automatic signing.
+      tab) so the export-compliance prompt never appears on upload. Not set yet;
+      alternatively answer "No" to the encryption prompt at upload time.
+- [x] **Signing team.** Done: DEVELOPMENT_TEAM = SMQ3T59TFL, automatic signing.
 - [ ] **Unique build number** per upload. Bump `CURRENT_PROJECT_VERSION` for each
       new archive (it is currently 1).
 - [ ] **StoreKit local testing (optional but recommended).** To exercise the Pro
