@@ -14,6 +14,7 @@ struct ContentView: View {
 
     @State private var viewModel = TableViewModel()
     @State private var library = LibraryViewModel()
+    private var openBroker = OpenFileBroker.shared
     @State private var isImporting = false
     @State private var isConnectingFolder = false
     @State private var isExporting = false
@@ -81,6 +82,11 @@ struct ContentView: View {
                 viewModel.createNewDocument(name: "Untitled")
                 #endif
             }
+            // A file the OS asked us to open may have arrived before this view
+            // existed (cold launch from Finder/Spotlight) — open it now.
+            if let url = openBroker.consume() {
+                openExternal(url)
+            }
         }
         .sheet(isPresented: $showingWorkspace) {
             NavigationStack {
@@ -116,49 +122,65 @@ struct ContentView: View {
                 columnVisibility = .detailOnly
             }
         }
-        .fileImporter(
-            isPresented: $isImporting,
-            allowedContentTypes: [.commaSeparatedText, .tabSeparatedText, .plainText],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                if let url = urls.first {
-                    viewModel.openDocument(at: url)
-                    library.recordRecent(at: url)
-                    columnVisibility = .detailOnly
+        // Each file panel gets its own anchor view: multiple fileImporter/
+        // fileExporter modifiers on one view silently drop all but one panel
+        // on macOS.
+        .background {
+            Color.clear.fileImporter(
+                isPresented: $isImporting,
+                allowedContentTypes: [.commaSeparatedText, .tabSeparatedText, .plainText],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first {
+                        openExternal(url)
+                    }
+                case .failure(let error):
+                    viewModel.errorMessage = error.localizedDescription
                 }
-            case .failure(let error):
-                viewModel.errorMessage = error.localizedDescription
             }
         }
-        .fileImporter(
-            isPresented: $isConnectingFolder,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                if let url = urls.first {
-                    library.connectFolder(at: url)
+        .background {
+            Color.clear.fileImporter(
+                isPresented: $isConnectingFolder,
+                allowedContentTypes: [.folder],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    if let url = urls.first {
+                        library.connectFolder(at: url)
+                    }
+                case .failure(let error):
+                    library.errorMessage = error.localizedDescription
                 }
-            case .failure(let error):
-                library.errorMessage = error.localizedDescription
             }
         }
-        .fileExporter(
-            isPresented: $isExporting,
-            document: CSVFileDocument(text: viewModel.shareText),
-            contentType: .commaSeparatedText,
-            defaultFilename: viewModel.shareFileName
-        ) { result in
-            switch result {
-            case .success(let url):
-                viewModel.sourceURL = url
-                // A "Save As" into a connected folder should show up in its list.
-                library.refresh()
-            case .failure(let error):
-                viewModel.errorMessage = "Could not save the file. \(error.localizedDescription)"
+        // Files the OS hands us: Finder "Open With"/Spotlight arrive via the
+        // app delegate broker (macOS); a Files-app tap arrives via onOpenURL (iOS).
+        .onOpenURL { url in
+            openExternal(url)
+        }
+        .onChange(of: openBroker.pendingURL) { _, pending in
+            guard pending != nil, let url = openBroker.consume() else { return }
+            openExternal(url)
+        }
+        .background {
+            Color.clear.fileExporter(
+                isPresented: $isExporting,
+                document: CSVFileDocument(text: viewModel.shareText),
+                contentType: .commaSeparatedText,
+                defaultFilename: viewModel.shareFileName
+            ) { result in
+                switch result {
+                case .success(let url):
+                    viewModel.sourceURL = url
+                    // A "Save As" into a connected folder should show up in its list.
+                    library.refresh()
+                case .failure(let error):
+                    viewModel.errorMessage = "Could not save the file. \(error.localizedDescription)"
+                }
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -189,6 +211,18 @@ struct ContentView: View {
         } message: { message in
             Text(message)
         }
+    }
+
+    /// Open a file that came from outside the table view — the in-app importer,
+    /// Finder/Spotlight (macOS), or a Files-app tap (iOS). Any pending edit in
+    /// the current table is flushed first so switching files never loses one.
+    private func openExternal(_ url: URL) {
+        guard url.isFileURL else { return }
+        viewModel.flush()
+        viewModel.openDocument(at: url)
+        library.recordRecent(at: url)
+        columnVisibility = .detailOnly
+        showingWorkspace = false
     }
 
     /// The open .csv lives in a connected folder, so we hold a scope that covers
