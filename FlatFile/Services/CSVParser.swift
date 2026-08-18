@@ -29,6 +29,15 @@ enum CSVParser {
 
     // MARK: - Parsing
 
+    /// A row-terminator outside of quotes. Swift folds a CRLF ("\r\n") into a
+    /// single grapheme-cluster Character, so a raw "\r"/"\n" comparison would
+    /// miss it and a CRLF file (Windows / Excel export) would collapse into one
+    /// giant row. Matching "\r\n" here — alongside lone "\n" and lone "\r" —
+    /// splits rows correctly while leaving CRLF *inside* a quoted field intact.
+    private static func isRowSeparator(_ ch: Character) -> Bool {
+        ch == "\n" || ch == "\r" || ch == "\r\n"
+    }
+
     static func parse(_ csv: String, delimiter: Character = ",") -> [[String]] {
         guard !csv.isEmpty else { return [] }
 
@@ -58,15 +67,7 @@ enum CSVParser {
                 } else if ch == delimiter {
                     currentRow.append(currentField)
                     currentField = ""
-                } else if ch == "\r" {
-                    currentRow.append(currentField)
-                    currentField = ""
-                    rows.append(currentRow)
-                    currentRow = []
-                    if i + 1 < chars.count && chars[i + 1] == "\n" {
-                        i += 1
-                    }
-                } else if ch == "\n" {
+                } else if isRowSeparator(ch) {
                     currentRow.append(currentField)
                     currentField = ""
                     rows.append(currentRow)
@@ -81,16 +82,7 @@ enum CSVParser {
                     currentRow.append(currentField)
                     currentField = ""
                     state = .fieldStart
-                } else if ch == "\r" {
-                    currentRow.append(currentField)
-                    currentField = ""
-                    rows.append(currentRow)
-                    currentRow = []
-                    if i + 1 < chars.count && chars[i + 1] == "\n" {
-                        i += 1
-                    }
-                    state = .fieldStart
-                } else if ch == "\n" {
+                } else if isRowSeparator(ch) {
                     currentRow.append(currentField)
                     currentField = ""
                     rows.append(currentRow)
@@ -115,16 +107,7 @@ enum CSVParser {
                     currentRow.append(currentField)
                     currentField = ""
                     state = .fieldStart
-                } else if ch == "\r" {
-                    currentRow.append(currentField)
-                    currentField = ""
-                    rows.append(currentRow)
-                    currentRow = []
-                    if i + 1 < chars.count && chars[i + 1] == "\n" {
-                        i += 1
-                    }
-                    state = .fieldStart
-                } else if ch == "\n" {
+                } else if isRowSeparator(ch) {
                     currentRow.append(currentField)
                     currentField = ""
                     rows.append(currentRow)
