@@ -537,6 +537,18 @@ final class TableViewModel {
         (document?.name ?? "export") + ".csv"
     }
 
+    /// A file URL for the share sheet, so the sheet emails/saves as a real
+    /// `.csv` attachment (e.g. "budget.csv") instead of pasted text. Uses the
+    /// on-disk file when the sheet has one; otherwise writes a temp copy named
+    /// after the sheet. nil only when there is no document.
+    var shareURL: URL? {
+        if let sourceURL { return sourceURL }
+        guard let text = document?.rawCSV else { return nil }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(shareFileName)
+        try? Data(text.utf8).write(to: url, options: .atomic)
+        return url
+    }
+
     // MARK: - Raw CSV
 
     func applyRawCSVChanges() {

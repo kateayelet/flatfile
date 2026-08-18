@@ -92,12 +92,17 @@ struct TableView: View {
                         } label: {
                             proLabel("Inspect", systemImage: "checkmark.seal")
                         }
-                        ShareLink(
-                            item: document.rawCSV,
-                            subject: Text(document.name),
-                            message: Text("")
-                        ) {
-                            Label("Share", systemImage: "square.and.arrow.up")
+                        // Share the .csv as a real file, so emailing it (Mail,
+                        // Gmail, etc.) attaches "name.csv" instead of pasting the
+                        // raw text into the message body.
+                        if let shareURL = viewModel.shareURL {
+                            ShareLink(
+                                item: shareURL,
+                                subject: Text(document.name),
+                                message: Text("")
+                            ) {
+                                Label("Share", systemImage: "square.and.arrow.up")
+                            }
                         }
                     }
                 }
