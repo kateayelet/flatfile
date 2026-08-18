@@ -36,5 +36,9 @@
 	     them into the sandbox — the file on disk is the truth. -->
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<!-- Expose FlatFile's own folder (its Documents dir) in the Files app under
+	     "FlatFile", so sheets created in the app are real, visible, movable files. -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
 </dict>
 </plist>

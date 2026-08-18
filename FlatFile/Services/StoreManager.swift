@@ -23,7 +23,10 @@ final class StoreManager {
     /// The loaded Pro product, or nil until `start()` finishes / on load failure.
     private(set) var proProduct: Product?
     /// The only thing the rest of the app reads to decide free vs Pro.
-    private(set) var isPro = false
+    /// FlatFile is now free forever — every tool is unlocked, so this is always
+    /// true, the paywall is never presented, and no PRO badges render. The
+    /// StoreKit machinery below is kept inert (unreachable) rather than deleted.
+    private(set) var isPro = true
     /// True while a purchase or restore is in flight (drives the paywall spinner).
     private(set) var isWorking = false
     /// Last user-facing error, surfaced by the paywall. Cleared on the next action.
@@ -31,34 +34,12 @@ final class StoreManager {
 
     private var updatesTask: Task<Void, Never>?
 
-    #if DEBUG
-    /// Screenshot/demo builds unlock Pro so App Store shots show the gated views.
-    /// Never compiled into a release build.
-    private let forceUnlocked =
-        ProcessInfo.processInfo.environment["FF_SCREENSHOT"]?.isEmpty == false
-        || CommandLine.arguments.contains("--screenshot-inspect")
-        || CommandLine.arguments.contains("--screenshot-demo")
-    #endif
-
     /// Price string for UI, e.g. "$9.99". Falls back to a placeholder pre-load.
     var displayPrice: String { proProduct?.displayPrice ?? "$9.99" }
 
-    /// Load the product, catch up on entitlements, and start listening for updates.
-    /// Safe to call more than once; the updates listener is only started once.
-    func start() async {
-        #if DEBUG
-        if forceUnlocked { isPro = true }
-        #endif
-        if updatesTask == nil {
-            updatesTask = Task { [weak self] in
-                for await update in Transaction.updates {
-                    await self?.handle(update)
-                }
-            }
-        }
-        await loadProduct()
-        await refreshEntitlements()
-    }
+    /// FlatFile is free, so there is nothing to load or listen for — Pro is
+    /// already unlocked. Kept as a no-op so callers (FlatFileApp) still compile.
+    func start() async {}
 
     func loadProduct() async {
         do {
@@ -132,9 +113,7 @@ final class StoreManager {
     }
 
     private func applyOwned(_ owned: Bool) {
-        #if DEBUG
-        if forceUnlocked { isPro = true; return }
-        #endif
-        isPro = owned
+        // FlatFile is free — never downgrade from unlocked.
+        isPro = true
     }
 }

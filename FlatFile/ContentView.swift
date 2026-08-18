@@ -24,6 +24,8 @@ struct ContentView: View {
     @State private var showingTemplatePicker = false
     @State private var newTableName = ""
     @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
+    /// iPhone only: whether the table is pushed on top of the tiles home.
+    @State private var isTableOpen = false
 
     #if DEBUG
     /// Screenshot mode for App Store capture, driven by the FF_SCREENSHOT env var
@@ -71,15 +73,23 @@ struct ContentView: View {
                 case "demo":
                     viewModel.loadDemoDocument()
                     columnVisibility = .all
+                    isTableOpen = true
                 case "inspect":
                     viewModel.loadDemoDocument(withIssues: true)
                     columnVisibility = .all
                     viewModel.showingInspect = true
+                    isTableOpen = true
                 default:
-                    viewModel.createNewDocument(name: "Untitled")
+                    // iPhone opens to the tiles home; iPad/Mac keep a table in
+                    // the detail pane so the split view is never blank.
+                    if horizontalSizeClass != .compact {
+                        viewModel.createNewDocument(name: "Untitled")
+                    }
                 }
                 #else
-                viewModel.createNewDocument(name: "Untitled")
+                if horizontalSizeClass != .compact {
+                    viewModel.createNewDocument(name: "Untitled")
+                }
                 #endif
             }
             // A file the OS asked us to open may have arrived before this view
@@ -104,9 +114,8 @@ struct ContentView: View {
             NewTableSheetView(
                 tableName: $newTableName,
                 onCreateBlank: { name, columnCount, rowCount in
-                    viewModel.createNewDocument(name: name, columnCount: columnCount, rowCount: rowCount)
+                    createBlankSheet(name: name, columnCount: columnCount, rowCount: rowCount)
                     newTableName = ""
-                    columnVisibility = .detailOnly
                 },
                 onChooseTemplate: { draftName in
                     newTableName = draftName
@@ -117,9 +126,8 @@ struct ContentView: View {
         .sheet(isPresented: $showingTemplatePicker) {
             TemplatePickerView { template in
                 let name = newTableName.trimmingCharacters(in: .whitespaces)
-                viewModel.createFromTemplate(template, name: name.isEmpty ? template.name : name)
+                createTemplateSheet(template, name: name.isEmpty ? template.name : name)
                 newTableName = ""
-                columnVisibility = .detailOnly
             }
         }
         // Each file panel gets its own anchor view: multiple fileImporter/
@@ -223,6 +231,34 @@ struct ContentView: View {
         library.recordRecent(at: url)
         columnVisibility = .detailOnly
         showingWorkspace = false
+        isTableOpen = true // iPhone: push the table over the tiles home
+    }
+
+    /// Create a blank sheet and open it. On iPhone the sheet is a real file in
+    /// FlatFile's own folder (so it appears as a tile and auto-saves); on
+    /// iPad/Mac it stays the in-memory "Untitled" flow shown in the detail pane.
+    private func createBlankSheet(name: String, columnCount: Int, rowCount: Int) {
+        if horizontalSizeClass == .compact {
+            let c = max(1, columnCount)
+            let headers = (1...c).map { "column_\($0)" }
+            var matrix = [headers]
+            matrix += Array(repeating: Array(repeating: "", count: c), count: max(0, rowCount))
+            if let url = library.createSheetFile(name: name, rows: matrix) { openExternal(url) }
+        } else {
+            viewModel.createNewDocument(name: name.isEmpty ? "Untitled" : name,
+                                        columnCount: columnCount, rowCount: rowCount)
+            columnVisibility = .detailOnly
+        }
+    }
+
+    private func createTemplateSheet(_ template: CSVTemplate, name: String) {
+        if horizontalSizeClass == .compact {
+            let matrix = [template.headers] + template.exampleRows
+            if let url = library.createSheetFile(name: name, rows: matrix) { openExternal(url) }
+        } else {
+            viewModel.createFromTemplate(template, name: name)
+            columnVisibility = .detailOnly
+        }
     }
 
     /// The open .csv lives in a connected folder, so we hold a scope that covers
@@ -242,21 +278,17 @@ struct ContentView: View {
 
     private var compactLayout: some View {
         NavigationStack {
-            TableView(viewModel: viewModel, sourceInConnectedFolder: sourceInConnectedFolder)
-                .toolbar {
-                    // `compactLayout` only runs on iOS at runtime (Mac uses the
-                    // split layout), but it must still compile for macOS, where
-                    // `.topBarLeading` is unavailable.
-                    #if os(iOS)
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            showingWorkspace = true
-                        } label: {
-                            Label("Workspace", systemImage: "sidebar.left")
-                        }
-                    }
-                    #endif
-                }
+            SheetLibraryView(
+                library: library,
+                currentURL: viewModel.sourceURL,
+                onOpen: { url in openExternal(url) },
+                onNewSheet: { showingNewTableSheet = true },
+                onImport: { isImporting = true },
+                onConnectFolder: { isConnectingFolder = true }
+            )
+            .navigationDestination(isPresented: $isTableOpen) {
+                TableView(viewModel: viewModel, sourceInConnectedFolder: sourceInConnectedFolder)
+            }
         }
     }
 
