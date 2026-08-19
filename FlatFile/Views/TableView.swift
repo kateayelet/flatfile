@@ -26,6 +26,9 @@ struct TableView: View {
     private let cellWidth: CGFloat = 160
     private static let largeFileThreshold = 2000
     @State private var showingNotePane = false
+    /// The Mac raw-CSV pane is a power feature, hidden by default so the table
+    /// reads like a spreadsheet, not a text-and-grid dev tool. Preference persists.
+    @AppStorage("flatfileShowRawCSV") private var showRawCSV = false
     @Environment(\.openURL) private var openURL
     #if !os(macOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -277,8 +280,16 @@ struct TableView: View {
 
             #if os(macOS)
             Divider()
-            RawCSVView(viewModel: viewModel)
-                .frame(maxHeight: 220)
+            DisclosureGroup(isExpanded: $showRawCSV) {
+                RawCSVView(viewModel: viewModel)
+                    .frame(maxHeight: 200)
+            } label: {
+                Text("Raw CSV")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 6)
             #endif
         }
     }
@@ -337,18 +348,12 @@ struct TableView: View {
                 headerRow(for: document)
                 Divider()
                 ScrollView(.vertical) {
-                    LazyVStack(alignment: .leading, spacing: 8) {
+                    LazyVStack(alignment: .leading, spacing: 6) {
                         ForEach(rows) { row in
                             rowView(row, document: document)
                         }
-                        Divider()
-                            .padding(.top, 8)
-                        RowAppendView(headers: document.headers) { values in
-                            viewModel.appendRow(values)
-                        }
-                        .frame(width: 360, alignment: .leading)
-                        .padding(.bottom)
                     }
+                    .padding(.bottom)
                 }
             }
             .padding()

@@ -180,6 +180,7 @@ final class TableViewModel {
         sidecar = FlatFileSidecar()
         errorMessage = nil
         resetUndoHistory()
+        padWithBlankRows()
     }
 
     #if DEBUG
@@ -235,6 +236,7 @@ final class TableViewModel {
         sidecar = FlatFileSidecar()
         errorMessage = nil
         resetUndoHistory()
+        padWithBlankRows()
     }
 
     func openDocument(at url: URL) {
@@ -251,17 +253,18 @@ final class TableViewModel {
             applySidecarSort()
             errorMessage = nil
             resetUndoHistory()
+            padWithBlankRows()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
     func saveDocument() {
-        guard let document, let sourceURL else { return }
+        guard let sourceURL, let toSave = documentForSaving() else { return }
 
         do {
-            try FileService.saveDocument(document, to: sourceURL)
-            rawCSVText = document.rawCSV
+            try FileService.saveDocument(toSave, to: sourceURL)
+            rawCSVText = toSave.rawCSV
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -287,12 +290,12 @@ final class TableViewModel {
     /// Writes any pending edit to disk immediately. Safe to call repeatedly.
     func persistNow() {
         saveTask?.cancel()
-        guard let document, let sourceURL else { return }
+        guard let sourceURL, let toSave = documentForSaving() else { return }
         do {
-            try FileService.saveDocument(document, to: sourceURL)
+            try FileService.saveDocument(toSave, to: sourceURL)
             errorMessage = nil
         } catch {
-            errorMessage = "Could not save \"\(document.name).csv\". \(error.localizedDescription)"
+            errorMessage = "Could not save \"\(toSave.name).csv\". \(error.localizedDescription)"
         }
     }
 
@@ -416,12 +419,60 @@ final class TableViewModel {
         recordUndo(coalesceKey: "cell:\(rowID):\(columnIndex)")
         document.updateCell(rowID: rowID, columnIndex: columnIndex, value: value)
         self.document = document
+        // Keep a blank row waiting below the data, spreadsheet-style: as you
+        // fill the last row, a fresh empty one appears underneath.
+        ensureTrailingBlank()
         // Only the macOS raw-CSV editor reads rawCSVText; skip the per-edit
         // whole-document serialize on iOS, where nothing consumes it.
         #if os(macOS)
-        rawCSVText = document.rawCSV
+        rawCSVText = self.document?.rawCSV ?? ""
         #endif
         scheduleAutosave()
+    }
+
+    // MARK: - Blank-row scaffolding (spreadsheet feel)
+
+    /// Whether a row is entirely empty.
+    private func isBlank(_ row: CSVRow) -> Bool { row.values.allSatisfy { $0.isEmpty } }
+
+    /// Fill the table out with blank rows so it always reads like a spreadsheet
+    /// you can type straight into, not an empty form. In-memory scaffolding
+    /// only — `documentForSaving()` trims these back out before writing to disk.
+    /// Does not autosave (padding must not dirty the file until you type).
+    func padWithBlankRows(minRows: Int = 14, minTrailingBlanks: Int = 6) {
+        guard var document else { return }
+        let cols = max(1, document.headers.count)
+        func trailingBlanks() -> Int {
+            var n = 0
+            for row in document.rows.reversed() {
+                if isBlank(row) { n += 1 } else { break }
+            }
+            return n
+        }
+        while document.rows.count < minRows || trailingBlanks() < minTrailingBlanks {
+            document.appendRow(Array(repeating: "", count: cols))
+            if document.rows.count > 100_000 { break } // runaway guard
+        }
+        self.document = document
+    }
+
+    /// Ensure at least one blank row sits below the last non-blank one.
+    private func ensureTrailingBlank() {
+        guard var document, let last = document.rows.last else { return }
+        if !isBlank(last) {
+            document.appendRow(Array(repeating: "", count: max(1, document.headers.count)))
+            self.document = document
+        }
+    }
+
+    /// The document as it should be written to disk: the trailing blank rows the
+    /// grid keeps as scratch space are dropped, so the file stays clean.
+    private func documentForSaving() -> CSVDocument? {
+        guard var document else { return nil }
+        while let last = document.rows.last, isBlank(last) {
+            document.rows.removeLast()
+        }
+        return document
     }
 
     func appendRow(_ values: [String]) {
