@@ -18,13 +18,44 @@ struct TableListView: View {
     let onOpenFile: (URL) -> Void
     let onSave: () -> Void
 
-    @Environment(StoreManager.self) private var store
-    @State private var showingPaywall = false
-
     var body: some View {
         List {
+            Section("Sheets") {
+                Button(action: onNewTable) {
+                    Label("New Sheet", systemImage: "plus")
+                }
+                if library.allSheets.isEmpty {
+                    Text("Your sheets show up here. Create one, or open a CSV.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(library.allSheets) { entry in
+                        Button {
+                            onOpenFile(entry.url)
+                        } label: {
+                            HStack {
+                                Image(systemName: "tablecells")
+                                    .foregroundStyle(.secondary)
+                                Text(entry.displayName)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if entry.hasPairedNote {
+                                    Image(systemName: "paperclip")
+                                        .foregroundStyle(.secondary)
+                                        .accessibilityLabel("Has paired note")
+                                }
+                                if entry.url.standardizedFileURL.path == sourceURL?.standardizedFileURL.path {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.tint)
+                                        .accessibilityLabel("Currently open")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             Section("Workspace") {
-                Button("New Table", action: onNewTable)
                 Button("Import CSV", action: onImport)
                 Button("Connect Folder", action: onConnectFolder)
                 Button("Save As…", action: onSave)
@@ -79,23 +110,6 @@ struct TableListView: View {
                 }
             }
 
-            // A second, quiet path to the paywall: someone who never opens the
-            // table toolbar should still learn Pro exists. Gone once purchased.
-            if !store.isPro {
-                Section {
-                    Button {
-                        showingPaywall = true
-                    } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Label("FlatFile Pro", systemImage: "checkmark.seal")
-                            Text("Inspect, Find & Replace, and Column Stats. One-time unlock, no subscription.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-
             if let document {
                 Section("Current File") {
                     LabeledContent("Name", value: document.name)
@@ -113,9 +127,6 @@ struct TableListView: View {
             }
         }
         .navigationTitle("FlatFile")
-        .sheet(isPresented: $showingPaywall) {
-            PaywallView()
-        }
     }
 
     @ViewBuilder

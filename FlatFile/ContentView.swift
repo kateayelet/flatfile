@@ -23,9 +23,12 @@ struct ContentView: View {
     @State private var showingNewTableSheet = false
     @State private var showingTemplatePicker = false
     @State private var newTableName = ""
-    @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
     /// iPhone only: whether the table is pushed on top of the tiles home.
     @State private var isTableOpen = false
+    // NOTE: columnVisibility only affects the iPad/Mac split layout — iPhone uses
+    // a NavigationStack. The sidebar (the sheets list) stays visible so Mac/iPad
+    // always show your sheets alongside the open table, like the iPhone home.
 
     #if DEBUG
     /// Screenshot mode for App Store capture, driven by the FF_SCREENSHOT env var
@@ -229,35 +232,34 @@ struct ContentView: View {
         viewModel.flush()
         viewModel.openDocument(at: url)
         library.recordRecent(at: url)
-        columnVisibility = .detailOnly
+        columnVisibility = .all
         showingWorkspace = false
         isTableOpen = true // iPhone: push the table over the tiles home
     }
 
-    /// Create a blank sheet and open it. On iPhone the sheet is a real file in
-    /// FlatFile's own folder (so it appears as a tile and auto-saves); on
-    /// iPad/Mac it stays the in-memory "Untitled" flow shown in the detail pane.
+    /// Create a blank sheet and open it. New sheets are real files in FlatFile's
+    /// own folder (so they appear in the sheets list and auto-save) on every
+    /// platform. Falls back to an in-memory doc only if the file can't be written.
     private func createBlankSheet(name: String, columnCount: Int, rowCount: Int) {
-        if horizontalSizeClass == .compact {
-            let c = max(1, columnCount)
-            let headers = (1...c).map { "column_\($0)" }
-            var matrix = [headers]
-            matrix += Array(repeating: Array(repeating: "", count: c), count: max(0, rowCount))
-            if let url = library.createSheetFile(name: name, rows: matrix) { openExternal(url) }
+        let c = max(1, columnCount)
+        let headers = (1...c).map { "column_\($0)" }
+        var matrix = [headers]
+        matrix += Array(repeating: Array(repeating: "", count: c), count: max(0, rowCount))
+        if let url = library.createSheetFile(name: name, rows: matrix) {
+            openExternal(url)
         } else {
             viewModel.createNewDocument(name: name.isEmpty ? "Untitled" : name,
                                         columnCount: columnCount, rowCount: rowCount)
-            columnVisibility = .detailOnly
+            columnVisibility = .all
         }
     }
 
     private func createTemplateSheet(_ template: CSVTemplate, name: String) {
-        if horizontalSizeClass == .compact {
-            let matrix = [template.headers] + template.exampleRows
-            if let url = library.createSheetFile(name: name, rows: matrix) { openExternal(url) }
+        if let url = library.createSheetFile(name: name, rows: [template.headers] + template.exampleRows) {
+            openExternal(url)
         } else {
             viewModel.createFromTemplate(template, name: name)
-            columnVisibility = .detailOnly
+            columnVisibility = .all
         }
     }
 
@@ -314,7 +316,7 @@ struct ContentView: View {
                 showingWorkspace = false
                 viewModel.openDocument(at: url)
                 library.recordRecent(at: url)
-                columnVisibility = .detailOnly
+                columnVisibility = .all
             },
             onSave: {
                 // Edits persist automatically once the file has a location;
