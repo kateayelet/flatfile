@@ -22,9 +22,39 @@ struct TableView: View {
     /// keeps its promise: the results sheet opens as soon as the paywall closes.
     @State private var pendingInspectAfterUnlock = false
 
-    /// Fixed column width keeps the pinned header aligned with virtualized rows.
-    private let cellWidth: CGFloat = 160
+    /// Fixed cell metrics keep the pinned header aligned with virtualized rows
+    /// and give the tight, gridline look of a real spreadsheet.
+    private let cellWidth: CGFloat = 150
+    private let cellHeight: CGFloat = 30
+    private let headerHeight: CGFloat = 44
+    private let gutterWidth: CGFloat = 46
     private static let largeFileThreshold = 2000
+
+    // Adaptive spreadsheet palette: pure-white cells, a faint gray gutter/header,
+    // and hairline separators — clean and neutral, not cream.
+    private var cellFill: Color {
+        #if os(macOS)
+        Color(nsColor: .textBackgroundColor)
+        #else
+        Color(uiColor: .systemBackground)
+        #endif
+    }
+    private var gutterFill: Color {
+        #if os(macOS)
+        Color(nsColor: .controlBackgroundColor)
+        #else
+        Color(uiColor: .secondarySystemBackground)
+        #endif
+    }
+    // Adaptive and actually visible on white — the semantic separators wash out.
+    private var gridLine: Color { Color.primary.opacity(0.16) }
+
+    /// Excel-style column label: 0 -> A, 25 -> Z, 26 -> AA.
+    private func columnLetter(_ index: Int) -> String {
+        var n = index, s = ""
+        repeat { s = String(UnicodeScalar(65 + n % 26)!) + s; n = n / 26 - 1 } while n >= 0
+        return s
+    }
     @State private var showingNotePane = false
     /// The Mac raw-CSV pane is a power feature, hidden by default so the table
     /// reads like a spreadsheet, not a text-and-grid dev tool. Preference persists.
@@ -344,132 +374,109 @@ struct TableView: View {
         // vertical ScrollView has a bounded height, so its LazyVStack genuinely
         // virtualizes (only on-screen rows are built).
         return ScrollView(.horizontal, showsIndicators: true) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
                 headerRow(for: document)
-                Divider()
                 ScrollView(.vertical) {
-                    LazyVStack(alignment: .leading, spacing: 6) {
-                        ForEach(rows) { row in
-                            rowView(row, document: document)
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                            rowView(row, rowNumber: index + 1, document: document)
                         }
                     }
-                    .padding(.bottom)
                 }
             }
-            .padding()
+            .padding(12)
         }
     }
 
+    /// The frozen header: a corner cell over the row-number gutter, then a
+    /// lettered, editable cell per column — the top edge of the spreadsheet.
     private func headerRow(for document: CSVDocument) -> some View {
-        HStack(spacing: 12) {
-            // Leading column reserved for the per-row actions menu.
-            Color.clear.frame(width: 28, height: 1)
-            ForEach(Array(document.headers.enumerated()), id: \.offset) { index, header in
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 6) {
-                        // The user's intended type (from the sidecar) if set,
-                        // else inferred from a sample (not the whole column) so a
-                        // big file doesn't pay an O(rows) scan on every redraw.
-                        Image(systemName: viewModel.resolvedType(
-                            forColumn: index,
-                            sample: document.rows.prefix(50).map { $0[index] }
-                        ).icon)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Button {
-                            viewModel.sortByColumn(index)
-                        } label: {
-                            Text("Sort")
-                                .font(.caption.weight(.medium))
-                        }
-                        .buttonStyle(.borderless)
-
-                        Spacer(minLength: 0)
-
-                        Button {
-                            gatePro {
-                                viewModel.statsColumnIndex = index
-                                viewModel.showingColumnStats = true
-                            }
-                        } label: {
-                            HStack(spacing: 2) {
-                                Image(systemName: "chart.bar")
-                                    .font(.caption)
-                                    .foregroundStyle(store.isPro ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                                if !store.isPro {
-                                    proBadge
-                                }
-                            }
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel(store.isPro ? "Column stats" : "Column stats (Pro)")
-
-                        if viewModel.sortColumnIndex == index {
-                            Image(systemName: viewModel.sortAscending ? "chevron.up" : "chevron.down")
-                                .font(.caption)
-                        }
-                    }
-                    TextField(
-                        "Column \(index + 1)",
-                        text: headerBinding(columnIndex: index)
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    // The optional sidecar display name, shown only when it's been
-                    // set to something other than the raw header.
-                    if viewModel.displayName(forColumn: index) != header, !header.isEmpty {
-                        Text(viewModel.displayName(forColumn: index))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-                .frame(width: cellWidth, alignment: .leading)
+        HStack(spacing: 0) {
+            Text("")
+                .frame(width: gutterWidth, height: headerHeight)
+                .background(gutterFill)
+                .gridCell(line: gridLine, edges: [.top, .leading, .trailing, .bottom])
+            ForEach(Array(document.headers.enumerated()), id: \.offset) { index, _ in
+                headerCell(index: index, document: document)
             }
         }
-        .padding(.vertical, 4)
-        .background(.background)
     }
 
-    private func rowView(_ row: CSVRow, document: CSVDocument) -> some View {
-        HStack(spacing: 12) {
-            // Tappable per-row delete — reliable on iPhone, where the cell
-            // TextFields would otherwise swallow a long-press.
-            rowActionsMenu(for: row)
+    private func headerCell(index: Int, document: CSVDocument) -> some View {
+        let sorted = viewModel.sortColumnIndex == index
+        return VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: 3) {
+                // Column letter — click to sort by this column.
+                Text(columnLetter(index))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(sorted ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                    .onTapGesture { viewModel.sortByColumn(index) }
+                if sorted {
+                    Image(systemName: viewModel.sortAscending ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.tint)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: viewModel.resolvedType(
+                    forColumn: index,
+                    sample: document.rows.prefix(50).map { $0[index] }
+                ).icon)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+            }
+            TextField("Column \(index + 1)", text: headerBinding(columnIndex: index))
+                .textFieldStyle(.plain)
+                .font(.system(size: 12, weight: .semibold))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .frame(width: cellWidth, height: headerHeight, alignment: .leading)
+        .background(gutterFill)
+        .gridCell(line: gridLine, edges: [.top, .trailing, .bottom])
+        .contextMenu {
+            Button { viewModel.sortByColumn(index) } label: {
+                Label("Sort", systemImage: "arrow.up.arrow.down")
+            }
+            Button {
+                gatePro {
+                    viewModel.statsColumnIndex = index
+                    viewModel.showingColumnStats = true
+                }
+            } label: {
+                Label("Column Stats", systemImage: "chart.bar")
+            }
+        }
+    }
+
+    private func rowView(_ row: CSVRow, rowNumber: Int, document: CSVDocument) -> some View {
+        HStack(spacing: 0) {
+            // Row-number gutter (right-click to delete the row).
+            Text("\(rowNumber)")
+                .font(.system(size: 11).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: gutterWidth, height: cellHeight)
+                .background(gutterFill)
+                .gridCell(line: gridLine, edges: [.leading, .trailing, .bottom])
+                .contextMenu {
+                    Button(role: .destructive) { rowToDelete = row } label: {
+                        Label("Delete Row", systemImage: "trash")
+                    }
+                }
             ForEach(Array(document.headers.indices), id: \.self) { columnIndex in
-                TextField(
-                    document.headers[columnIndex].isEmpty ? "Value" : document.headers[columnIndex],
-                    text: cellBinding(row: row, columnIndex: columnIndex)
-                )
-                .textFieldStyle(.roundedBorder)
-                .frame(width: cellWidth)
+                TextField("", text: cellBinding(row: row, columnIndex: columnIndex))
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12))
+                    .padding(.horizontal, 8)
+                    .frame(width: cellWidth, height: cellHeight, alignment: .leading)
+                    .background(cellFill)
+                    .gridCell(line: gridLine, edges: [.trailing, .bottom])
             }
         }
         .contextMenu {
-            // Right-click on Mac (and a secondary path elsewhere).
-            Button(role: .destructive) {
-                rowToDelete = row
-            } label: {
+            Button(role: .destructive) { rowToDelete = row } label: {
                 Label("Delete Row", systemImage: "trash")
             }
         }
-    }
-
-    private func rowActionsMenu(for row: CSVRow) -> some View {
-        Menu {
-            Button(role: .destructive) {
-                rowToDelete = row
-            } label: {
-                Label("Delete Row", systemImage: "trash")
-            }
-        } label: {
-            Image(systemName: "ellipsis.circle")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .frame(width: 28, height: 28)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.borderless)
-        .accessibilityLabel("Row actions")
     }
 
     /// Binds against the row value already in hand (from ForEach), so the getter
@@ -492,5 +499,25 @@ struct TableView: View {
             },
             set: { viewModel.updateHeader(at: columnIndex, value: $0) }
         )
+    }
+}
+
+/// Hairline borders on chosen edges of a cell, so adjacent cells share single
+/// gridlines — the tight grid look of a spreadsheet.
+private struct GridCellBorders: ViewModifier {
+    let line: Color
+    let edges: Edge.Set
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: .top) { if edges.contains(.top) { line.frame(height: 1) } }
+            .overlay(alignment: .bottom) { if edges.contains(.bottom) { line.frame(height: 1) } }
+            .overlay(alignment: .leading) { if edges.contains(.leading) { line.frame(width: 1) } }
+            .overlay(alignment: .trailing) { if edges.contains(.trailing) { line.frame(width: 1) } }
+    }
+}
+
+private extension View {
+    func gridCell(line: Color, edges: Edge.Set = [.trailing, .bottom]) -> some View {
+        modifier(GridCellBorders(line: line, edges: edges))
     }
 }
