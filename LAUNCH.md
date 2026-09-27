@@ -8,7 +8,7 @@ App Store Connect walk-through is `appstore/SUBMISSION_CHECKLIST.md`.
 
 - App is feature-complete for v1. Code is on GitHub: `kateayelet/flatfile`
   (branch `main`), working tree clean.
-- Version **1.0**, build **1** in the project.
+- Version **1.0**, build **3** in the project (`CURRENT_PROJECT_VERSION`).
 - Real app icon is in place (single 1024x1024, reused across sizes).
 - Deployment targets are broad: iOS 17.0, macOS 14.0.
 - App Store text and policy are generated and in the repo:
@@ -50,22 +50,25 @@ declaration is needed. Remove all EU territories under Pricing and Availability
 
 1. **Support URL** (required). Easiest: make the GitHub repo public and use
    `https://github.com/kateayelet/flatfile`.
-2. **Privacy Policy URL** (required). Host `docs/privacy.html` on GitHub Pages
-   (or `appstore/PRIVACY.md` anywhere public) and use that link. Add your contact
-   email — already set to kateayelet@aftrveil.com; change if needed.
+2. **Privacy Policy URL** (required). Paste this into App Store Connect:
+   `https://kateayelet.github.io/flatfile/privacy.html`
+   GitHub Pages is already on (`main` / `docs`); that path is the live HTML.
+   The Pages root `https://kateayelet.github.io/flatfile/` 404s (no
+   `docs/index.html`) — do not use the root. Fallback:
+   `https://raw.githubusercontent.com/kateayelet/flatfile/main/docs/privacy.html`.
+   Contact email is already kateayelet@aftrveil.com; change if needed.
 
 ---
 
 ## Step 0 — Build-setting fixes (Xcode, before archiving)
 
 See `appstore/SUBMISSION_CHECKLIST.md` section 0 for the exact toggles. The two
-that matter most:
+that mattered most are already set:
 
-- **Set User Selected Files to Read/Write** in App Sandbox, or the Mac build
-  cannot save edits (FlatFile auto-saves). This is the one real correctness
-  blocker.
-- **Set `ITSAppUsesNonExemptEncryption = NO`** so uploads do not prompt for
-  export compliance.
+- **User Selected Files is Read/Write** in App Sandbox, so the Mac build can
+  save edits (FlatFile auto-saves).
+- **`ITSAppUsesNonExemptEncryption = NO`** is set on FlatFile Debug and Release,
+  so uploads do not prompt for export compliance.
 
 Also recommended: drop `xros`/`xrsimulator` from Supported Destinations unless
 you intend to ship and test a native visionOS build, and set the signing team to
@@ -104,12 +107,12 @@ Support URL. License is already MIT.
   FlatFile/                      app source (SwiftUI, MVVM)
   FlatFileTests/                 tests
   docs/
-    privacy.html                 privacy policy for GitHub Pages
+    privacy.html                 privacy policy (live at /privacy.html)
   appstore/
     METADATA.md                  paste-ready App Store text
     PRIVACY.md                   privacy policy (markdown)
     SUBMISSION_CHECKLIST.md      App Store Connect steps
     screenshots/
       SHOTLIST.md                sizes + shot list
-      iphone-6.9/  ipad-13/  mac/   (drop PNGs here)
+      iphone-6.9/  ipad-13/  mac/   (PNGs captured)
 ```

@@ -27,9 +27,10 @@ per-version "Distribution" pages (one for iOS, one for macOS).
 - **Support URL (required):** a reachable page. Simplest: make the GitHub repo
   public and use `https://github.com/kateayelet/flatfile`, or a one-page site
   with a contact email.
-- **Privacy Policy URL (required):** host `PRIVACY.md` (or `docs/privacy.html`)
-  publicly — GitHub Pages is easiest — and paste that URL. Fill in the contact
-  email in PRIVACY.md first.
+- **Privacy Policy URL (required):** paste
+  `https://kateayelet.github.io/flatfile/privacy.html`
+  (GitHub Pages already serves `docs/privacy.html`). Fallback:
+  `https://raw.githubusercontent.com/kateayelet/flatfile/main/docs/privacy.html`.
 - **Marketing URL (optional):** leave blank or point to a landing page.
 
 ---
@@ -116,10 +117,10 @@ no analytics, no tracking, no third-party SDKs, and no server the app talks to.
 When asked "Do you or your third-party partners collect data from this app?",
 answer **No**.
 
-**Encryption:** set `ITSAppUsesNonExemptEncryption = NO` in the build so the
-export-compliance prompt does not appear (see SUBMISSION_CHECKLIST.md — FlatFile
-uses `GENERATE_INFOPLIST_FILE`, so this is a build setting, not an Info.plist
-entry).
+**Encryption:** `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` is set on the
+FlatFile Debug and Release configs so the export-compliance prompt does not
+appear (see SUBMISSION_CHECKLIST.md — FlatFile uses `GENERATE_INFOPLIST_FILE`,
+so this is a build setting, not an Info.plist entry).
 
 **EU trader status:** Decision made — **exclude the EU from availability** for
 v1 (no trader declaration). Set this under Pricing and Availability → remove all

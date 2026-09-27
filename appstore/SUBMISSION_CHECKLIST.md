@@ -17,13 +17,12 @@ Settings**.
 - [x] **Drop the visionOS target (recommended).** Done for the app target
       (`SUPPORTED_PLATFORMS = iphoneos iphonesimulator macosx`). Only the
       Tests/UITests targets still list `xros`; they do not ship.
-- [ ] **Export compliance.** Add build setting
-      `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` (or set it in the Info
-      tab) so the export-compliance prompt never appears on upload. Not set yet;
-      alternatively answer "No" to the encryption prompt at upload time.
+- [x] **Export compliance.** Done: `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption =
+      NO` is set on the FlatFile app target for Debug and Release
+      (`GENERATE_INFOPLIST_FILE` writes it into the generated Info.plist).
 - [x] **Signing team.** Done: DEVELOPMENT_TEAM = SMQ3T59TFL, automatic signing.
 - [ ] **Unique build number** per upload. Bump `CURRENT_PROJECT_VERSION` for each
-      new archive (it is currently 1).
+      new archive (it is currently 3).
 - [ ] **StoreKit local testing (optional but recommended).** To exercise the Pro
       unlock in the simulator before the IAP exists in App Store Connect: Product →
       Scheme → Edit Scheme → Run → Options → **StoreKit Configuration** →
@@ -65,7 +64,11 @@ Settings**.
 ## 3. Privacy
 
 - [ ] **App Privacy → Data Collection:** "No, we do not collect data."
-- [ ] **Privacy Policy URL:** paste your hosted PRIVACY.md / privacy.html URL.
+- [ ] **Privacy Policy URL:** paste
+      `https://kateayelet.github.io/flatfile/privacy.html`
+      (GitHub Pages already serves `docs/privacy.html`; the site root 404s
+      because there is no `docs/index.html`). Fallback:
+      `https://raw.githubusercontent.com/kateayelet/flatfile/main/docs/privacy.html`.
 
 ---
 
