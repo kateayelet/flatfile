@@ -55,9 +55,9 @@ xcrun simctl io <udid> screenshot <out.png>   # repeat a few times to pass the l
 iPhone device: **iPhone 17 Pro Max** (1320x2868). iPad: **iPad Pro 13-inch (M5)**
 (2064x2752).
 
-### Mac: still to capture
-The seam works on Mac too. Run the Mac app with the env var set and screenshot
-the window:
+### Mac recapture (already captured — `mac/1-table.png`, `mac/2-inspect.png`)
+The seam works on Mac too. To recapture, run the Mac app with the env var set
+and screenshot the window:
 ```
 FF_SCREENSHOT=demo /path/to/FlatFile.app/Contents/MacOS/FlatFile   # then Cmd+Shift+4, space
 ```
