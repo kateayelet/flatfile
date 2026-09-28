@@ -46,31 +46,53 @@ struct ContentView: View {
     #endif
 
     var body: some View {
-        Group {
-            #if DEBUG
-            // In screenshot mode: iOS captures the table directly (compact), while
-            // macOS uses the real sidebar+table split so the window looks authentic
-            // and fills its width rather than leaving the table alone on the left.
-            if screenshotMode != nil {
-                #if os(macOS)
-                splitLayout
-                #else
-                compactLayout
-                #endif
-            } else if horizontalSizeClass == .compact {
-                compactLayout
-            } else {
-                splitLayout
-            }
+        // Nested helpers keep each `some View` small. A single modifier chain
+        // here is what timed out the macOS type checker after Paste CSV landed.
+        withErrorAlert(
+            withExternalOpen(
+                withFilePanels(
+                    withSheets(
+                        withLifecycle(
+                            withPasteCSVCommands(rootLayout)
+                        )
+                    )
+                )
+            )
+        )
+    }
+
+    // MARK: - Root layout
+
+    @ViewBuilder
+    private var rootLayout: some View {
+        #if DEBUG
+        // In screenshot mode: iOS captures the table directly (compact), while
+        // macOS uses the real sidebar+table split so the window looks authentic
+        // and fills its width rather than leaving the table alone on the left.
+        if screenshotMode != nil {
+            #if os(macOS)
+            splitLayout
             #else
-            if horizontalSizeClass == .compact {
-                compactLayout
-            } else {
-                splitLayout
-            }
+            compactLayout
             #endif
+        } else if horizontalSizeClass == .compact {
+            compactLayout
+        } else {
+            splitLayout
         }
-        .commands {
+        #else
+        if horizontalSizeClass == .compact {
+            compactLayout
+        } else {
+            splitLayout
+        }
+        #endif
+    }
+
+    // MARK: - Body stages (one concern each so the type checker can finish)
+
+    private func withPasteCSVCommands<V: View>(_ content: V) -> some View {
+        content.commands {
             CommandGroup(after: .pasteboard) {
                 Button("Paste CSV…") {
                     revealRawCSV()
@@ -78,169 +100,248 @@ struct ContentView: View {
                 .keyboardShortcut("v", modifiers: [.command, .shift])
             }
         }
-        .onAppear {
-            // Restore the inline footer on Mac/iPad. Do not reopen the iPhone
-            // sheet on launch — that path is an explicit action.
-            if horizontalSizeClass != .compact {
-                viewModel.showingRawCSV = persistShowRawCSV
+    }
+
+    private func withLifecycle<V: View>(_ content: V) -> some View {
+        withStateObservers(withAppearAndScene(content))
+    }
+
+    private func withAppearAndScene<V: View>(_ content: V) -> some View {
+        content
+            .onAppear(perform: handleAppear)
+            .onChange(of: scenePhase) { _, phase in
+                handleScenePhase(phase)
             }
-            library.loadConnectedFolders()
-            if viewModel.document == nil {
-                #if DEBUG
-                switch screenshotMode {
-                case "demo":
-                    viewModel.loadDemoDocument()
-                    columnVisibility = .all
-                    isTableOpen = true
-                case "inspect":
-                    viewModel.loadDemoDocument(withIssues: true)
-                    columnVisibility = .all
-                    viewModel.showingInspect = true
-                    isTableOpen = true
-                default:
-                    // iPhone opens to the tiles home; iPad/Mac keep a table in
-                    // the detail pane so the split view is never blank.
-                    if horizontalSizeClass != .compact {
-                        viewModel.createNewDocument(name: "Untitled")
-                    }
-                }
-                #else
-                if horizontalSizeClass != .compact {
-                    viewModel.createNewDocument(name: "Untitled")
-                }
-                #endif
+    }
+
+    private func withStateObservers<V: View>(_ content: V) -> some View {
+        content
+            .onChange(of: viewModel.errorMessage) { _, newValue in
+                showingError = newValue != nil
             }
-            // A file the OS asked us to open may have arrived before this view
-            // existed (cold launch from Finder/Spotlight) — open it now.
-            if let url = openBroker.consume() {
-                openExternal(url)
+            .onChange(of: viewModel.showingRawCSV) { _, isShowing in
+                persistRawCSVVisibility(isShowing)
             }
-        }
-        .sheet(isPresented: $showingWorkspace) {
-            NavigationStack {
-                workspaceView
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Close") {
-                                showingWorkspace = false
-                            }
-                        }
-                    }
+            .onChange(of: library.errorMessage) { _, newValue in
+                promoteLibraryError(newValue)
             }
-        }
-        .sheet(isPresented: $showingNewTableSheet) {
-            NewTableSheetView(
-                tableName: $newTableName,
-                onCreateBlank: { name, columnCount, rowCount in
-                    createBlankSheet(name: name, columnCount: columnCount, rowCount: rowCount)
-                    newTableName = ""
-                },
-                onChooseTemplate: { draftName in
-                    newTableName = draftName
-                    showingTemplatePicker = true
-                }
-            )
-        }
-        .sheet(isPresented: $showingTemplatePicker) {
-            TemplatePickerView { template in
-                let name = newTableName.trimmingCharacters(in: .whitespaces)
-                createTemplateSheet(template, name: name.isEmpty ? template.name : name)
-                newTableName = ""
+    }
+
+    private func withSheets<V: View>(_ content: V) -> some View {
+        content
+            .sheet(isPresented: $showingWorkspace) {
+                workspaceSheet
             }
-        }
+            .sheet(isPresented: $showingNewTableSheet) {
+                newTableSheet
+            }
+            .sheet(isPresented: $showingTemplatePicker) {
+                templatePickerSheet
+            }
+    }
+
+    private func withFilePanels<V: View>(_ content: V) -> some View {
         // Each file panel gets its own anchor view: multiple fileImporter/
         // fileExporter modifiers on one view silently drop all but one panel
         // on macOS.
-        .background {
-            Color.clear.fileImporter(
-                isPresented: $isImporting,
-                allowedContentTypes: [.commaSeparatedText, .tabSeparatedText, .plainText],
-                allowsMultipleSelection: false
-            ) { result in
-                switch result {
-                case .success(let urls):
-                    if let url = urls.first {
-                        openExternal(url)
-                    }
-                case .failure(let error):
-                    viewModel.errorMessage = error.localizedDescription
-                }
-            }
-        }
-        .background {
-            Color.clear.fileImporter(
-                isPresented: $isConnectingFolder,
-                allowedContentTypes: [.folder],
-                allowsMultipleSelection: false
-            ) { result in
-                switch result {
-                case .success(let urls):
-                    if let url = urls.first {
-                        library.connectFolder(at: url)
-                    }
-                case .failure(let error):
-                    library.errorMessage = error.localizedDescription
-                }
-            }
-        }
+        content
+            .background { importPanel }
+            .background { connectFolderPanel }
+            .background { exportPanel }
+    }
+
+    private func withExternalOpen<V: View>(_ content: V) -> some View {
         // Files the OS hands us: Finder "Open With"/Spotlight arrive via the
         // app delegate broker (macOS); a Files-app tap arrives via onOpenURL (iOS).
-        .onOpenURL { url in
-            openExternal(url)
-        }
-        .onChange(of: openBroker.pendingURL) { _, pending in
-            guard pending != nil, let url = openBroker.consume() else { return }
-            openExternal(url)
-        }
-        .background {
-            Color.clear.fileExporter(
-                isPresented: $isExporting,
-                document: CSVFileDocument(text: viewModel.shareText),
-                contentType: .commaSeparatedText,
-                defaultFilename: viewModel.shareFileName
-            ) { result in
-                switch result {
-                case .success(let url):
-                    viewModel.sourceURL = url
-                    // A "Save As" into a connected folder should show up in its list.
-                    library.refresh()
-                case .failure(let error):
-                    viewModel.errorMessage = "Could not save the file. \(error.localizedDescription)"
-                }
+        content
+            .onOpenURL { url in
+                openExternal(url)
             }
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                // Pick up external edits made while we were away.
-                viewModel.reloadIfChanged()
-                library.refresh()
-            } else {
-                // Flush any pending debounced save before leaving the foreground.
-                viewModel.flush()
+            .onChange(of: openBroker.pendingURL) { _, pending in
+                guard pending != nil, let url = openBroker.consume() else { return }
+                openExternal(url)
             }
-        }
-        .onChange(of: viewModel.errorMessage) { _, newValue in
-            showingError = newValue != nil
-        }
-        .onChange(of: viewModel.showingRawCSV) { _, isShowing in
-            if horizontalSizeClass != .compact {
-                persistShowRawCSV = isShowing
-            }
-        }
-        .onChange(of: library.errorMessage) { _, newValue in
-            // Surface folder/bookmark errors through the same alert, then clear
-            // so the same error can re-trigger later.
-            if let newValue {
-                viewModel.errorMessage = newValue
-                library.errorMessage = nil
-            }
-        }
-        .alert("FlatFile Error", isPresented: $showingError, presenting: viewModel.errorMessage) { _ in
+    }
+
+    private func withErrorAlert<V: View>(_ content: V) -> some View {
+        content.alert("FlatFile Error", isPresented: $showingError, presenting: viewModel.errorMessage) { _ in
             Button("OK") {
                 viewModel.dismissError()
             }
         } message: { message in
             Text(message)
+        }
+    }
+
+    // MARK: - Sheets
+
+    private var workspaceSheet: some View {
+        NavigationStack {
+            workspaceView
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close") {
+                            showingWorkspace = false
+                        }
+                    }
+                }
+        }
+    }
+
+    private var newTableSheet: some View {
+        NewTableSheetView(
+            tableName: $newTableName,
+            onCreateBlank: { name, columnCount, rowCount in
+                createBlankSheet(name: name, columnCount: columnCount, rowCount: rowCount)
+                newTableName = ""
+            },
+            onChooseTemplate: { draftName in
+                newTableName = draftName
+                showingTemplatePicker = true
+            }
+        )
+    }
+
+    private var templatePickerSheet: some View {
+        TemplatePickerView { template in
+            let name = newTableName.trimmingCharacters(in: .whitespaces)
+            createTemplateSheet(template, name: name.isEmpty ? template.name : name)
+            newTableName = ""
+        }
+    }
+
+    // MARK: - File panels
+
+    private var importPanel: some View {
+        Color.clear.fileImporter(
+            isPresented: $isImporting,
+            allowedContentTypes: [.commaSeparatedText, .tabSeparatedText, .plainText],
+            allowsMultipleSelection: false
+        ) { result in
+            handleImportResult(result)
+        }
+    }
+
+    private var connectFolderPanel: some View {
+        Color.clear.fileImporter(
+            isPresented: $isConnectingFolder,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            handleConnectFolderResult(result)
+        }
+    }
+
+    private var exportPanel: some View {
+        Color.clear.fileExporter(
+            isPresented: $isExporting,
+            document: CSVFileDocument(text: viewModel.shareText),
+            contentType: .commaSeparatedText,
+            defaultFilename: viewModel.shareFileName
+        ) { result in
+            handleExportResult(result)
+        }
+    }
+
+    // MARK: - Lifecycle handlers
+
+    private func handleAppear() {
+        // Restore the inline footer on Mac/iPad. Do not reopen the iPhone
+        // sheet on launch — that path is an explicit action.
+        if horizontalSizeClass != .compact {
+            viewModel.showingRawCSV = persistShowRawCSV
+        }
+        library.loadConnectedFolders()
+        if viewModel.document == nil {
+            #if DEBUG
+            switch screenshotMode {
+            case "demo":
+                viewModel.loadDemoDocument()
+                columnVisibility = .all
+                isTableOpen = true
+            case "inspect":
+                viewModel.loadDemoDocument(withIssues: true)
+                columnVisibility = .all
+                viewModel.showingInspect = true
+                isTableOpen = true
+            default:
+                // iPhone opens to the tiles home; iPad/Mac keep a table in
+                // the detail pane so the split view is never blank.
+                ensureUntitledOnWideLayout()
+            }
+            #else
+            ensureUntitledOnWideLayout()
+            #endif
+        }
+        // A file the OS asked us to open may have arrived before this view
+        // existed (cold launch from Finder/Spotlight) — open it now.
+        if let url = openBroker.consume() {
+            openExternal(url)
+        }
+    }
+
+    private func ensureUntitledOnWideLayout() {
+        if horizontalSizeClass != .compact {
+            viewModel.createNewDocument(name: "Untitled")
+        }
+    }
+
+    private func handleScenePhase(_ phase: ScenePhase) {
+        if phase == .active {
+            // Pick up external edits made while we were away.
+            viewModel.reloadIfChanged()
+            library.refresh()
+        } else {
+            // Flush any pending debounced save before leaving the foreground.
+            viewModel.flush()
+        }
+    }
+
+    private func persistRawCSVVisibility(_ isShowing: Bool) {
+        if horizontalSizeClass != .compact {
+            persistShowRawCSV = isShowing
+        }
+    }
+
+    private func promoteLibraryError(_ newValue: String?) {
+        // Surface folder/bookmark errors through the same alert, then clear
+        // so the same error can re-trigger later.
+        if let newValue {
+            viewModel.errorMessage = newValue
+            library.errorMessage = nil
+        }
+    }
+
+    private func handleImportResult(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            if let url = urls.first {
+                openExternal(url)
+            }
+        case .failure(let error):
+            viewModel.errorMessage = error.localizedDescription
+        }
+    }
+
+    private func handleConnectFolderResult(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            if let url = urls.first {
+                library.connectFolder(at: url)
+            }
+        case .failure(let error):
+            library.errorMessage = error.localizedDescription
+        }
+    }
+
+    private func handleExportResult(_ result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            viewModel.sourceURL = url
+            // A "Save As" into a connected folder should show up in its list.
+            library.refresh()
+        case .failure(let error):
+            viewModel.errorMessage = "Could not save the file. \(error.localizedDescription)"
         }
     }
 

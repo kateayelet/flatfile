@@ -86,124 +86,7 @@ struct TableView: View {
 
     var body: some View {
         if let document = viewModel.document {
-            content(for: document)
-            .navigationTitle(document.name)
-            // Reset the note pane per document: tears it down (flushing its edits
-            // via onDisappear) and clears the toggle so it never leaks across files.
-            .onChange(of: viewModel.sourceURL) { _, _ in showingNotePane = false }
-            .searchable(text: $viewModel.searchQuery, prompt: "Filter rows...")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    HStack(spacing: 12) {
-                        Button {
-                            viewModel.undo()
-                        } label: {
-                            Label("Undo", systemImage: "arrow.uturn.backward")
-                        }
-                        .disabled(!viewModel.canUndo)
-                        .keyboardShortcut("z", modifiers: .command)
-                        Button {
-                            viewModel.redo()
-                        } label: {
-                            Label("Redo", systemImage: "arrow.uturn.forward")
-                        }
-                        .disabled(!viewModel.canRedo)
-                        .keyboardShortcut("z", modifiers: [.command, .shift])
-                        companionControls()
-                        #if os(iOS)
-                        if !isWide {
-                            Button {
-                                viewModel.revealRawCSVEditor()
-                            } label: {
-                                Label("Raw CSV", systemImage: "doc.plaintext")
-                            }
-                            .help("Paste or type comma-separated values")
-                        }
-                        #endif
-                        Button {
-                            gatePro { viewModel.showingFindReplace.toggle() }
-                        } label: {
-                            proLabel("Find & Replace", systemImage: "magnifyingglass")
-                        }
-                        Button {
-                            if store.isPro {
-                                viewModel.showingInspect = true
-                            } else {
-                                // Free taps still run the checks, so the paywall
-                                // can speak to this file; only the details are paid.
-                                // The paywall opens immediately; the teaser line
-                                // fills in when the scan finishes off-main.
-                                paywallTeaser = nil
-                                pendingInspectAfterUnlock = true
-                                showingPaywall = true
-                                let snapshot = viewModel.document
-                                Task.detached(priority: .userInitiated) {
-                                    let teaser = TableView.inspectTeaser(for: snapshot)
-                                    await MainActor.run { paywallTeaser = teaser }
-                                }
-                            }
-                        } label: {
-                            proLabel("Inspect", systemImage: "checkmark.seal")
-                        }
-                        // Share the .csv as a real file, so emailing it (Mail,
-                        // Gmail, etc.) attaches "name.csv" instead of pasting the
-                        // raw text into the message body.
-                        if let shareURL = viewModel.shareURL {
-                            ShareLink(
-                                item: shareURL,
-                                subject: Text(document.name),
-                                message: Text("")
-                            ) {
-                                Label("Share", systemImage: "square.and.arrow.up")
-                            }
-                        }
-                    }
-                    .fontWeight(.light)
-                    .symbolRenderingMode(.hierarchical)
-                }
-            }
-            .confirmationDialog(
-                "Delete this row?",
-                isPresented: .init(
-                    get: { rowToDelete != nil },
-                    set: { if !$0 { rowToDelete = nil } }
-                ),
-                titleVisibility: .visible
-            ) {
-                Button("Delete", role: .destructive) {
-                    if let row = rowToDelete {
-                        viewModel.deleteRow(id: row.id)
-                        rowToDelete = nil
-                    }
-                }
-            }
-            .sheet(isPresented: $viewModel.showingInspect) {
-                InspectView(findings: viewModel.runInspection()) {
-                    viewModel.showingInspect = false
-                }
-            }
-            .sheet(isPresented: $viewModel.showingColumnStats) {
-                if let index = viewModel.statsColumnIndex,
-                   let document = viewModel.document,
-                   document.headers.indices.contains(index),
-                   let stats = viewModel.columnStats(for: index) {
-                    ColumnStatsView(
-                        viewModel: viewModel,
-                        columnIndex: index,
-                        headerName: document.headers[index],
-                        stats: stats
-                    )
-                    .mediumLargeSheetDetents()
-                }
-            }
-            .iphoneRawCSVSheet(isPresented: iphoneRawCSVPresented, viewModel: viewModel)
-            .sheet(isPresented: $showingPaywall, onDismiss: {
-                let openInspect = pendingInspectAfterUnlock && store.isPro
-                pendingInspectAfterUnlock = false
-                if openInspect { viewModel.showingInspect = true }
-            }) {
-                PaywallView(teaser: paywallTeaser)
-            }
+            tableChrome(for: document)
         } else {
             ContentUnavailableView(
                 "No CSV Selected",
@@ -211,6 +94,197 @@ struct TableView: View {
                 description: Text("Import a CSV file to start editing.")
             )
         }
+    }
+
+    /// Document canvas plus chrome, staged so the toolbar/sheet chain does not
+    /// overwhelm the macOS type checker (the same timeout as ContentView.body).
+    private func tableChrome(for document: CSVDocument) -> some View {
+        withTableSheets(
+            withTableDialog(
+                withTableToolbar(tableCanvas(for: document), document: document)
+            )
+        )
+    }
+
+    private func tableCanvas(for document: CSVDocument) -> some View {
+        content(for: document)
+            .navigationTitle(document.name)
+            // Reset the note pane per document: tears it down (flushing its edits
+            // via onDisappear) and clears the toggle so it never leaks across files.
+            .onChange(of: viewModel.sourceURL) { _, _ in showingNotePane = false }
+            .searchable(text: $viewModel.searchQuery, prompt: "Filter rows...")
+    }
+
+    private func withTableToolbar<V: View>(_ content: V, document: CSVDocument) -> some View {
+        content.toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                tableToolbarItems(for: document)
+            }
+        }
+    }
+
+    private func tableToolbarItems(for document: CSVDocument) -> some View {
+        HStack(spacing: 12) {
+            undoButton
+            redoButton
+            companionControls()
+            compactRawCSVButton
+            findReplaceButton
+            inspectButton
+            shareControl(for: document)
+        }
+        .fontWeight(.light)
+        .symbolRenderingMode(.hierarchical)
+    }
+
+    private var undoButton: some View {
+        Button {
+            viewModel.undo()
+        } label: {
+            Label("Undo", systemImage: "arrow.uturn.backward")
+        }
+        .disabled(!viewModel.canUndo)
+        .keyboardShortcut("z", modifiers: .command)
+    }
+
+    private var redoButton: some View {
+        Button {
+            viewModel.redo()
+        } label: {
+            Label("Redo", systemImage: "arrow.uturn.forward")
+        }
+        .disabled(!viewModel.canRedo)
+        .keyboardShortcut("z", modifiers: [.command, .shift])
+    }
+
+    @ViewBuilder
+    private var compactRawCSVButton: some View {
+        #if os(iOS)
+        if !isWide {
+            Button {
+                viewModel.revealRawCSVEditor()
+            } label: {
+                Label("Raw CSV", systemImage: "doc.plaintext")
+            }
+            .help("Paste or type comma-separated values")
+        }
+        #else
+        EmptyView()
+        #endif
+    }
+
+    private var findReplaceButton: some View {
+        Button {
+            gatePro { viewModel.showingFindReplace.toggle() }
+        } label: {
+            proLabel("Find & Replace", systemImage: "magnifyingglass")
+        }
+    }
+
+    private var inspectButton: some View {
+        Button {
+            openInspectOrPaywall()
+        } label: {
+            proLabel("Inspect", systemImage: "checkmark.seal")
+        }
+    }
+
+    /// Share the .csv as a real file, so emailing it (Mail, Gmail, etc.)
+    /// attaches "name.csv" instead of pasting the raw text into the body.
+    @ViewBuilder
+    private func shareControl(for document: CSVDocument) -> some View {
+        if let shareURL = viewModel.shareURL {
+            ShareLink(
+                item: shareURL,
+                subject: Text(document.name),
+                message: Text("")
+            ) {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+        }
+    }
+
+    private func openInspectOrPaywall() {
+        if store.isPro {
+            viewModel.showingInspect = true
+        } else {
+            // Free taps still run the checks, so the paywall can speak to
+            // this file; only the details are paid. The paywall opens
+            // immediately; the teaser line fills in when the scan finishes
+            // off-main.
+            paywallTeaser = nil
+            pendingInspectAfterUnlock = true
+            showingPaywall = true
+            let snapshot = viewModel.document
+            Task.detached(priority: .userInitiated) {
+                let teaser = TableView.inspectTeaser(for: snapshot)
+                await MainActor.run { paywallTeaser = teaser }
+            }
+        }
+    }
+
+    private func withTableDialog<V: View>(_ content: V) -> some View {
+        content.confirmationDialog(
+            "Delete this row?",
+            isPresented: rowDeletePresented,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let row = rowToDelete {
+                    viewModel.deleteRow(id: row.id)
+                    rowToDelete = nil
+                }
+            }
+        }
+    }
+
+    private var rowDeletePresented: Binding<Bool> {
+        Binding(
+            get: { rowToDelete != nil },
+            set: { if !$0 { rowToDelete = nil } }
+        )
+    }
+
+    private func withTableSheets<V: View>(_ content: V) -> some View {
+        content
+            .sheet(isPresented: $viewModel.showingInspect) {
+                inspectSheet
+            }
+            .sheet(isPresented: $viewModel.showingColumnStats) {
+                columnStatsSheet
+            }
+            .iphoneRawCSVSheet(isPresented: iphoneRawCSVPresented, viewModel: viewModel)
+            .sheet(isPresented: $showingPaywall, onDismiss: handlePaywallDismiss) {
+                PaywallView(teaser: paywallTeaser)
+            }
+    }
+
+    private var inspectSheet: some View {
+        InspectView(findings: viewModel.runInspection()) {
+            viewModel.showingInspect = false
+        }
+    }
+
+    @ViewBuilder
+    private var columnStatsSheet: some View {
+        if let index = viewModel.statsColumnIndex,
+           let document = viewModel.document,
+           document.headers.indices.contains(index),
+           let stats = viewModel.columnStats(for: index) {
+            ColumnStatsView(
+                viewModel: viewModel,
+                columnIndex: index,
+                headerName: document.headers[index],
+                stats: stats
+            )
+            .mediumLargeSheetDetents()
+        }
+    }
+
+    private func handlePaywallDismiss() {
+        let openInspect = pendingInspectAfterUnlock && store.isPro
+        pendingInspectAfterUnlock = false
+        if openInspect { viewModel.showingInspect = true }
     }
 
     /// Runs a Pro-only action, or opens the paywall when the app isn't unlocked.
@@ -346,37 +420,7 @@ struct TableView: View {
     /// The collapsed state is the entry point — not a tiny unlabeled disclosure.
     private var rawCSVFooter: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Button {
-                if viewModel.showingRawCSV {
-                    viewModel.showingRawCSV = false
-                    viewModel.wantsRawCSVFocus = false
-                } else {
-                    viewModel.revealRawCSVEditor()
-                }
-            } label: {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Image(systemName: "chevron.right")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .rotationEffect(.degrees(viewModel.showingRawCSV ? 90 : 0))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Raw CSV")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
-                        Text("Paste or type comma-separated values")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer(minLength: 8)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Raw CSV")
-            .accessibilityHint("Paste or type comma-separated values")
-            .accessibilityAddTraits(.isButton)
-            .accessibilityValue(viewModel.showingRawCSV ? "Expanded" : "Collapsed")
-
+            rawCSVToggle
             if viewModel.showingRawCSV {
                 RawCSVView(viewModel: viewModel, showsHeader: false, autoFocus: true)
                     .frame(minHeight: 220)
@@ -384,6 +428,47 @@ struct TableView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+    }
+
+    private var rawCSVToggle: some View {
+        Button {
+            toggleRawCSVFooter()
+        } label: {
+            rawCSVToggleLabel
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Raw CSV")
+        .accessibilityHint("Paste or type comma-separated values")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityValue(viewModel.showingRawCSV ? "Expanded" : "Collapsed")
+    }
+
+    private var rawCSVToggleLabel: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: "chevron.right")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .rotationEffect(.degrees(viewModel.showingRawCSV ? 90 : 0))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Raw CSV")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text("Paste or type comma-separated values")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+        }
+        .contentShape(Rectangle())
+    }
+
+    private func toggleRawCSVFooter() {
+        if viewModel.showingRawCSV {
+            viewModel.showingRawCSV = false
+            viewModel.wantsRawCSVFocus = false
+        } else {
+            viewModel.revealRawCSVEditor()
+        }
     }
 
     /// Toolbar paperclip: toggle the side-by-side note (wide), cross-launch
@@ -465,27 +550,8 @@ struct TableView: View {
     }
 
     private func headerCell(index: Int, document: CSVDocument) -> some View {
-        let sorted = viewModel.sortColumnIndex == index
-        return VStack(alignment: .leading, spacing: 1) {
-            HStack(spacing: 3) {
-                // Column letter — click to sort by this column.
-                Text(columnLetter(index))
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(sorted ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                    .onTapGesture { viewModel.sortByColumn(index) }
-                if sorted {
-                    Image(systemName: viewModel.sortAscending ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 8))
-                        .foregroundStyle(.tint)
-                }
-                Spacer(minLength: 0)
-                Image(systemName: viewModel.resolvedType(
-                    forColumn: index,
-                    sample: document.rows.prefix(50).map { $0[index] }
-                ).icon)
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
-            }
+        VStack(alignment: .leading, spacing: 1) {
+            headerMetaRow(index: index, document: document)
             TextField("Column \(index + 1)", text: headerBinding(columnIndex: index))
                 .textFieldStyle(.plain)
                 .font(.system(size: 12, weight: .semibold))
@@ -496,17 +562,50 @@ struct TableView: View {
         .background(gutterFill)
         .gridCell(line: gridLine, edges: [.top, .trailing, .bottom])
         .contextMenu {
-            Button { viewModel.sortByColumn(index) } label: {
-                Label("Sort", systemImage: "arrow.up.arrow.down")
+            headerContextMenu(index: index)
+        }
+    }
+
+    private func headerMetaRow(index: Int, document: CSVDocument) -> some View {
+        let sorted = viewModel.sortColumnIndex == index
+        return HStack(spacing: 3) {
+            // Column letter — click to sort by this column.
+            Text(columnLetter(index))
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(sorted ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                .onTapGesture { viewModel.sortByColumn(index) }
+            if sorted {
+                Image(systemName: viewModel.sortAscending ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.tint)
             }
-            Button {
-                gatePro {
-                    viewModel.statsColumnIndex = index
-                    viewModel.showingColumnStats = true
-                }
-            } label: {
-                Label("Column Stats", systemImage: "chart.bar")
+            Spacer(minLength: 0)
+            headerTypeIcon(index: index, document: document)
+        }
+    }
+
+    private func headerTypeIcon(index: Int, document: CSVDocument) -> some View {
+        let icon = viewModel.resolvedType(
+            forColumn: index,
+            sample: document.rows.prefix(50).map { $0[index] }
+        ).icon
+        return Image(systemName: icon)
+            .font(.system(size: 9))
+            .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private func headerContextMenu(index: Int) -> some View {
+        Button { viewModel.sortByColumn(index) } label: {
+            Label("Sort", systemImage: "arrow.up.arrow.down")
+        }
+        Button {
+            gatePro {
+                viewModel.statsColumnIndex = index
+                viewModel.showingColumnStats = true
             }
+        } label: {
+            Label("Column Stats", systemImage: "chart.bar")
         }
     }
 
@@ -589,28 +688,39 @@ private extension View {
     func iphoneRawCSVSheet(isPresented: Binding<Bool>, viewModel: TableViewModel) -> some View {
         #if os(iOS)
         sheet(isPresented: isPresented) {
-            NavigationStack {
-                RawCSVView(viewModel: viewModel, showsHeader: true, autoFocus: true)
-                    .padding()
-                    .navigationTitle("Raw CSV")
-                    .inlineNavigationTitle()
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Apply") {
-                                viewModel.applyRawCSVChanges()
-                            }
-                        }
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Done") {
-                                viewModel.showingRawCSV = false
-                            }
-                        }
-                    }
-            }
-            .mediumLargeSheetDetents()
+            iPhoneRawCSVSheet(viewModel: viewModel)
         }
         #else
         self
         #endif
     }
 }
+
+#if os(iOS)
+/// Compact-width raw-CSV editor. Apply reloads the grid; Done dismisses.
+private struct iPhoneRawCSVSheet: View {
+    @Bindable var viewModel: TableViewModel
+
+    var body: some View {
+        NavigationStack {
+            RawCSVView(viewModel: viewModel, showsHeader: true, autoFocus: true)
+                .padding()
+                .navigationTitle("Raw CSV")
+                .inlineNavigationTitle()
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Apply") {
+                            viewModel.applyRawCSVChanges()
+                        }
+                    }
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") {
+                            viewModel.showingRawCSV = false
+                        }
+                    }
+                }
+        }
+        .mediumLargeSheetDetents()
+    }
+}
+#endif
