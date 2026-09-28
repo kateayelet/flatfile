@@ -55,25 +55,12 @@ struct SheetLibraryView: View {
         }
         .navigationTitle("Sheets")
         .searchable(text: $query, prompt: "Search sheets")
-        .toolbar {
-            #if os(iOS)
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button { onImport() } label: { Label("Open a file", systemImage: "folder") }
-                    Button { onPasteCSV() } label: { Label("Paste CSV…", systemImage: "doc.plaintext") }
-                    Button { onConnectFolder() } label: { Label("Connect a folder", systemImage: "folder.badge.plus") }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { onNewSheet() } label: {
-                    Image(systemName: "plus.square.on.square")
-                }
-                .accessibilityLabel("New sheet")
-            }
-            #endif
-        }
+        .modifier(LibraryToolbar(
+            onNewSheet: onNewSheet,
+            onImport: onImport,
+            onConnectFolder: onConnectFolder,
+            onPasteCSV: onPasteCSV
+        ))
         .onAppear { library.refresh() }
     }
 
@@ -128,6 +115,14 @@ struct SheetLibraryView: View {
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+            emptyStateActions
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var emptyStateActions: some View {
+        VStack(spacing: 16) {
             Button { onNewSheet() } label: {
                 Label("New Sheet", systemImage: "plus")
             }
@@ -137,8 +132,6 @@ struct SheetLibraryView: View {
             }
             .font(.body)
         }
-        .padding(40)
-        .frame(maxWidth: .infinity)
     }
 
     private var cardFill: Color {
@@ -146,6 +139,39 @@ struct SheetLibraryView: View {
         Color(.secondarySystemBackground)
         #else
         Color.gray.opacity(0.10)
+        #endif
+    }
+}
+
+/// iPhone/iPad library chrome. No-op on Mac — `topBarTrailing` is iOS-only,
+/// and the Mac sidebar already has New Sheet / Paste CSV / Import.
+private struct LibraryToolbar: ViewModifier {
+    let onNewSheet: () -> Void
+    let onImport: () -> Void
+    let onConnectFolder: () -> Void
+    let onPasteCSV: () -> Void
+
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        content.toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button { onImport() } label: { Label("Open a file", systemImage: "folder") }
+                    Button { onPasteCSV() } label: { Label("Paste CSV…", systemImage: "doc.plaintext") }
+                    Button { onConnectFolder() } label: { Label("Connect a folder", systemImage: "folder.badge.plus") }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { onNewSheet() } label: {
+                    Image(systemName: "plus.square.on.square")
+                }
+                .accessibilityLabel("New sheet")
+            }
+        }
+        #else
+        content
         #endif
     }
 }
