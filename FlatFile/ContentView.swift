@@ -26,6 +26,8 @@ struct ContentView: View {
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     /// iPhone only: whether the table is pushed on top of the tiles home.
     @State private var isTableOpen = false
+    /// Remembers whether the Mac/iPad raw-CSV footer was last left open.
+    @AppStorage("flatfileShowRawCSV") private var persistShowRawCSV = false
     // NOTE: columnVisibility only affects the iPad/Mac split layout — iPhone uses
     // a NavigationStack. The sidebar (the sheets list) stays visible so Mac/iPad
     // always show your sheets alongside the open table, like the iPhone home.
@@ -68,7 +70,20 @@ struct ContentView: View {
             }
             #endif
         }
+        .commands {
+            CommandGroup(after: .pasteboard) {
+                Button("Paste CSV…") {
+                    revealRawCSV()
+                }
+                .keyboardShortcut("v", modifiers: [.command, .shift])
+            }
+        }
         .onAppear {
+            // Restore the inline footer on Mac/iPad. Do not reopen the iPhone
+            // sheet on launch — that path is an explicit action.
+            if horizontalSizeClass != .compact {
+                viewModel.showingRawCSV = persistShowRawCSV
+            }
             library.loadConnectedFolders()
             if viewModel.document == nil {
                 #if DEBUG
@@ -207,6 +222,11 @@ struct ContentView: View {
         .onChange(of: viewModel.errorMessage) { _, newValue in
             showingError = newValue != nil
         }
+        .onChange(of: viewModel.showingRawCSV) { _, isShowing in
+            if horizontalSizeClass != .compact {
+                persistShowRawCSV = isShowing
+            }
+        }
         .onChange(of: library.errorMessage) { _, newValue in
             // Surface folder/bookmark errors through the same alert, then clear
             // so the same error can re-trigger later.
@@ -263,6 +283,18 @@ struct ContentView: View {
         }
     }
 
+    /// Opens the raw-CSV editor as a first-class path (same free tier as Import).
+    /// Creates an Untitled sheet if nothing is open yet so paste has a target.
+    private func revealRawCSV() {
+        if viewModel.document == nil {
+            viewModel.createNewDocument(name: "Untitled")
+        }
+        viewModel.revealRawCSVEditor()
+        columnVisibility = .all
+        showingWorkspace = false
+        isTableOpen = true
+    }
+
     /// The open .csv lives in a connected folder, so we hold a scope that covers
     /// reading/writing its companion .md (gates the companion-note features).
     private var sourceInConnectedFolder: Bool {
@@ -289,7 +321,8 @@ struct ContentView: View {
                 onOpen: { url in openExternal(url) },
                 onNewSheet: { showingNewTableSheet = true },
                 onImport: { isImporting = true },
-                onConnectFolder: { isConnectingFolder = true }
+                onConnectFolder: { isConnectingFolder = true },
+                onPasteCSV: { revealRawCSV() }
             )
             .navigationDestination(isPresented: $isTableOpen) {
                 TableView(viewModel: viewModel, sourceInConnectedFolder: sourceInConnectedFolder)
@@ -325,7 +358,8 @@ struct ContentView: View {
                 // Edits persist automatically once the file has a location;
                 // this control is now "Save As" (first save, or save a copy).
                 isExporting = true
-            }
+            },
+            onPasteCSV: { revealRawCSV() }
         )
     }
 }

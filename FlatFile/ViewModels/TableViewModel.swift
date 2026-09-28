@@ -16,6 +16,12 @@ final class TableViewModel {
         didSet { pairedMarkdownURL = PaperclipHelper.pairedMarkdownURL(for: sourceURL) }
     }
     var rawCSVText = ""
+    /// Inline error from the last raw-CSV Apply. Cleared on a successful apply.
+    var rawCSVError: String?
+    /// Whether the raw-CSV editor is open (Mac/iPad footer, or iPhone sheet).
+    var showingRawCSV = false
+    /// Set when a control asks the editor to take keyboard focus (Paste CSV…).
+    var wantsRawCSVFocus = false
     var errorMessage: String?
     var sortColumnIndex: Int?
     var sortAscending = true
@@ -602,23 +608,53 @@ final class TableViewModel {
 
     // MARK: - Raw CSV
 
+    /// Opens the raw-CSV editor and focuses it so paste/type is the next action.
+    /// Free — same tier as Import. Syncs the editor from the current grid first
+    /// so the text matches what is on screen.
+    func revealRawCSVEditor() {
+        rawCSVText = document?.rawCSV ?? rawCSVText
+        showingRawCSV = true
+        wantsRawCSVFocus = true
+    }
+
     func applyRawCSVChanges() {
+        let currentName = document?.name
+            ?? sourceURL?.deletingPathExtension().lastPathComponent
+            ?? "Untitled"
+        let trimmed = rawCSVText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Empty paste is a valid wipe: a blank one-column sheet, not an error.
+        if trimmed.isEmpty {
+            recordUndo()
+            document = CSVDocument(name: currentName, headers: ["column_1"], rows: [], delimiter: ",")
+            sortColumnIndex = nil
+            rawCSVError = nil
+            errorMessage = nil
+            padWithBlankRows()
+            scheduleAutosave()
+            return
+        }
+
         let delimiter = CSVParser.detectDelimiter(rawCSVText)
         let parsed = CSVParser.parse(rawCSVText, delimiter: delimiter)
         guard let headers = parsed.first, !headers.isEmpty else {
-            errorMessage = FileServiceError.invalidCSV.localizedDescription
+            rawCSVError = "Couldn't read that as CSV. Paste comma-separated values with a header row, or clear the editor for a blank sheet."
+            showingRawCSV = true
             return
         }
 
         _ = headers
-        let currentName = document?.name ?? sourceURL?.deletingPathExtension().lastPathComponent ?? "Imported CSV"
         recordUndo()
         document = CSVDocument(name: currentName, parsedRows: parsed, delimiter: delimiter)
+        sortColumnIndex = nil
+        rawCSVError = nil
         errorMessage = nil
+        padWithBlankRows()
         scheduleAutosave()
     }
 
     func dismissError() {
         errorMessage = nil
+        rawCSVError = nil
     }
 }

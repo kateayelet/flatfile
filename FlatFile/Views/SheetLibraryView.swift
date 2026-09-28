@@ -16,6 +16,7 @@ struct SheetLibraryView: View {
     let onNewSheet: () -> Void
     let onImport: () -> Void
     let onConnectFolder: () -> Void
+    let onPasteCSV: () -> Void
 
     @State private var query = ""
 
@@ -59,6 +60,7 @@ struct SheetLibraryView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button { onImport() } label: { Label("Open a file", systemImage: "folder") }
+                    Button { onPasteCSV() } label: { Label("Paste CSV…", systemImage: "doc.plaintext") }
                     Button { onConnectFolder() } label: { Label("Connect a folder", systemImage: "folder.badge.plus") }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -121,16 +123,19 @@ struct SheetLibraryView: View {
                 .font(.system(size: 44))
                 .foregroundStyle(.secondary)
             Text("No sheets yet")
-                .font(.body.weight(.regular))
-                .foregroundStyle(.secondary)
-            Text("Create a sheet, or open a CSV from Files.")
-                .font(.callout)
+                .font(.title3.weight(.semibold))
+            Text("Create a sheet, open a CSV from Files, or paste comma-separated values.")
+                .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button { onNewSheet() } label: {
                 Label("New Sheet", systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
+            Button { onPasteCSV() } label: {
+                Label("Paste CSV…", systemImage: "doc.plaintext")
+            }
+            .font(.body)
         }
         .padding(40)
         .frame(maxWidth: .infinity)
