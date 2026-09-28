@@ -56,9 +56,6 @@ struct TableView: View {
         return s
     }
     @State private var showingNotePane = false
-    /// The Mac raw-CSV pane is a power feature, hidden by default so the table
-    /// reads like a spreadsheet, not a text-and-grid dev tool. Preference persists.
-    @AppStorage("flatfileShowRawCSV") private var showRawCSV = false
     @Environment(\.openURL) private var openURL
     #if !os(macOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -72,6 +69,19 @@ struct TableView: View {
         #else
         return horizontalSizeClass == .regular
         #endif
+    }
+
+    /// Mac and iPad keep the raw editor under the grid. iPhone uses a sheet
+    /// so the editor is not a tiny disclosure under a compact table.
+    private var usesInlineRawCSV: Bool { isWide }
+
+    /// iPhone-only binding: the sheet is up when the editor was asked to open
+    /// on a compact layout. Closing the sheet clears `showingRawCSV`.
+    private var iphoneRawCSVPresented: Binding<Bool> {
+        Binding(
+            get: { !usesInlineRawCSV && viewModel.showingRawCSV },
+            set: { if !$0 { viewModel.showingRawCSV = false } }
+        )
     }
 
     var body: some View {
@@ -100,6 +110,16 @@ struct TableView: View {
                         .disabled(!viewModel.canRedo)
                         .keyboardShortcut("z", modifiers: [.command, .shift])
                         companionControls()
+                        #if os(iOS)
+                        if !isWide {
+                            Button {
+                                viewModel.revealRawCSVEditor()
+                            } label: {
+                                Label("Raw CSV", systemImage: "doc.plaintext")
+                            }
+                            .help("Paste or type comma-separated values")
+                        }
+                        #endif
                         Button {
                             gatePro { viewModel.showingFindReplace.toggle() }
                         } label: {
@@ -176,6 +196,7 @@ struct TableView: View {
                     .mediumLargeSheetDetents()
                 }
             }
+            .iphoneRawCSVSheet(isPresented: iphoneRawCSVPresented, viewModel: viewModel)
             .sheet(isPresented: $showingPaywall, onDismiss: {
                 let openInspect = pendingInspectAfterUnlock && store.isPro
                 pendingInspectAfterUnlock = false
@@ -314,20 +335,55 @@ struct TableView: View {
 
             virtualTable(for: document)
 
-            #if os(macOS)
-            Divider()
-            DisclosureGroup(isExpanded: $showRawCSV) {
-                RawCSVView(viewModel: viewModel)
-                    .frame(maxHeight: 200)
-            } label: {
-                Text("Raw CSV")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
+            if usesInlineRawCSV {
+                Divider()
+                rawCSVFooter
             }
-            .padding(.horizontal)
-            .padding(.vertical, 6)
-            #endif
         }
+    }
+
+    /// Always-visible footer: title + hint + chevron, then the editor when open.
+    /// The collapsed state is the entry point — not a tiny unlabeled disclosure.
+    private var rawCSVFooter: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                if viewModel.showingRawCSV {
+                    viewModel.showingRawCSV = false
+                    viewModel.wantsRawCSVFocus = false
+                } else {
+                    viewModel.revealRawCSVEditor()
+                }
+            } label: {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: "chevron.right")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(viewModel.showingRawCSV ? 90 : 0))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Raw CSV")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        Text("Paste or type comma-separated values")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 8)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Raw CSV")
+            .accessibilityHint("Paste or type comma-separated values")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityValue(viewModel.showingRawCSV ? "Expanded" : "Collapsed")
+
+            if viewModel.showingRawCSV {
+                RawCSVView(viewModel: viewModel, showsHeader: false, autoFocus: true)
+                    .frame(minHeight: 220)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
     /// Toolbar paperclip: toggle the side-by-side note (wide), cross-launch
@@ -525,5 +581,36 @@ private struct GridCellBorders: ViewModifier {
 private extension View {
     func gridCell(line: Color, edges: Edge.Set = [.trailing, .bottom]) -> some View {
         modifier(GridCellBorders(line: line, edges: edges))
+    }
+
+    /// iPhone sheet for the raw-CSV editor. No-op on Mac (the footer is inline).
+    /// Uses the shared `mediumLargeSheetDetents()` wrapper so macOS still compiles.
+    @ViewBuilder
+    func iphoneRawCSVSheet(isPresented: Binding<Bool>, viewModel: TableViewModel) -> some View {
+        #if os(iOS)
+        sheet(isPresented: isPresented) {
+            NavigationStack {
+                RawCSVView(viewModel: viewModel, showsHeader: true, autoFocus: true)
+                    .padding()
+                    .navigationTitle("Raw CSV")
+                    .inlineNavigationTitle()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Apply") {
+                                viewModel.applyRawCSVChanges()
+                            }
+                        }
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") {
+                                viewModel.showingRawCSV = false
+                            }
+                        }
+                    }
+            }
+            .mediumLargeSheetDetents()
+        }
+        #else
+        self
+        #endif
     }
 }

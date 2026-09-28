@@ -19,6 +19,9 @@ struct TableListView: View {
     let onConnectFolder: () -> Void
     let onOpenFile: (URL) -> Void
     let onSave: () -> Void
+    /// Opens the raw-CSV editor so the user can paste or type values. Same
+    /// free tier as Import — not a Pro gate.
+    let onPasteCSV: () -> Void
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -89,6 +92,7 @@ struct TableListView: View {
     private var workspaceSection: some View {
         Section {
             workspaceAction("Import CSV", systemImage: "square.and.arrow.down", action: onImport)
+            workspaceAction("Paste CSV…", systemImage: "doc.plaintext", action: onPasteCSV)
             workspaceAction("Connect Folder", systemImage: "folder.badge.plus", action: onConnectFolder)
             workspaceAction("Save As…", systemImage: "square.and.arrow.down.on.square", action: onSave)
                 .disabled(document == nil)
@@ -197,11 +201,11 @@ struct TableListView: View {
                     .truncationMode(.middle)
                     .help(document.name)
                 Text(currentFileCaption(for: document))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                 if let sourceURL {
                     Text(sourceURL.lastPathComponent)
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -286,7 +290,7 @@ struct TableListView: View {
 
     private func emptyCopy(_ text: String) -> some View {
         Text(text)
-            .font(.caption.weight(.regular))
+            .font(.callout)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -343,7 +347,7 @@ private extension View {
     }
 
     func sidebarHeaderStyle() -> some View {
-        font(.caption.weight(.regular))
+        font(.subheadline.weight(.regular))
             .foregroundStyle(.secondary)
             .textCase(nil)
     }

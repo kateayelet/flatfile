@@ -472,6 +472,57 @@ struct TableViewModelSidecarTests {
     }
 }
 
+// MARK: - Raw CSV apply (paste / type path)
+
+@MainActor
+struct RawCSVApplyTests {
+    @Test func applyPastesCSVIntoTheGrid() {
+        let vm = TableViewModel()
+        vm.createNewDocument(name: "Untitled")
+        vm.rawCSVText = "name,age\nAda,36\n"
+        vm.applyRawCSVChanges()
+
+        #expect(vm.document?.headers == ["name", "age"])
+        #expect(vm.document?.rows.contains { $0.values.starts(with: ["Ada", "36"]) } == true)
+        #expect(vm.rawCSVError == nil)
+        #expect(vm.errorMessage == nil)
+    }
+
+    @Test func applyEmptyPasteYieldsABlankSheet() {
+        let vm = TableViewModel()
+        vm.createNewDocument(name: "Untitled")
+        vm.rawCSVText = "name,age\nAda,36\n"
+        vm.applyRawCSVChanges()
+        vm.rawCSVText = "  \n\n  "
+        vm.applyRawCSVChanges()
+
+        #expect(vm.document?.headers == ["column_1"])
+        #expect(vm.rawCSVError == nil)
+        #expect(vm.errorMessage == nil)
+        #expect(vm.canUndo)
+    }
+
+    @Test func applyClearsAPriorRawCSVError() {
+        let vm = TableViewModel()
+        vm.createNewDocument(name: "Untitled")
+        vm.rawCSVError = "stale"
+        vm.rawCSVText = "city,zip\nOakland,94612\n"
+        vm.applyRawCSVChanges()
+        #expect(vm.rawCSVError == nil)
+        #expect(vm.document?.headers == ["city", "zip"])
+    }
+
+    @Test func revealRawCSVOpensAndFocusesTheEditor() {
+        let vm = TableViewModel()
+        vm.createNewDocument(name: "Untitled")
+        #expect(!vm.showingRawCSV)
+        vm.revealRawCSVEditor()
+        #expect(vm.showingRawCSV)
+        #expect(vm.wantsRawCSVFocus)
+        #expect(!vm.rawCSVText.isEmpty)
+    }
+}
+
 // MARK: - InspectService Tests (AFTR-359 coverage for the data-quality engine)
 
 struct InspectServiceTests {
