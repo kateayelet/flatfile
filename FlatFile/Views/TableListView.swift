@@ -286,7 +286,7 @@ struct TableListView: View {
 
     private func emptyCopy(_ text: String) -> some View {
         Text(text)
-            .font(.subheadline)
+            .font(.caption.weight(.regular))
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -343,8 +343,8 @@ private extension View {
     }
 
     func sidebarHeaderStyle() -> some View {
-        font(.subheadline.weight(.semibold))
-            .foregroundStyle(.primary)
+        font(.caption.weight(.regular))
+            .foregroundStyle(.secondary)
             .textCase(nil)
     }
 
