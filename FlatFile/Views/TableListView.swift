@@ -22,6 +22,8 @@ struct TableListView: View {
     /// Opens the raw-CSV editor so the user can paste or type values. Same
     /// free tier as Import — not a Pro gate.
     let onPasteCSV: () -> Void
+    /// Opens Settings, where "What is FlatFile?" lives.
+    let onShowSettings: () -> Void
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -37,6 +39,7 @@ struct TableListView: View {
             if let document {
                 currentFileSection(document)
             }
+            settingsSection
         }
         .sidebarListStyle(isCompact: horizontalSizeClass == .compact)
         .sidebarSectionSpacing(16)
@@ -186,6 +189,16 @@ struct TableListView: View {
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Disconnect \(folder.name)")
             }
+        }
+    }
+
+    // MARK: - Settings
+
+    private var settingsSection: some View {
+        Section {
+            workspaceAction("Settings", systemImage: "gearshape", action: onShowSettings)
+        } header: {
+            sidebarHeader("App")
         }
     }
 

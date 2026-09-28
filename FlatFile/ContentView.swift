@@ -22,6 +22,8 @@ struct ContentView: View {
     @State private var showingWorkspace = false
     @State private var showingNewTableSheet = false
     @State private var showingTemplatePicker = false
+    @State private var showingAbout = false
+    @State private var showingSettings = false
     @State private var newTableName = ""
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     /// iPhone only: whether the table is pushed on top of the tiles home.
@@ -112,6 +114,11 @@ struct ContentView: View {
             .onChange(of: scenePhase) { _, phase in
                 handleScenePhase(phase)
             }
+            #if os(iOS)
+            .onReceive(NotificationCenter.default.publisher(for: .flatfileShowAbout)) { _ in
+                showingAbout = true
+            }
+            #endif
     }
 
     private func withStateObservers<V: View>(_ content: V) -> some View {
@@ -137,6 +144,12 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showingTemplatePicker) {
                 templatePickerSheet
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
+            }
+            .sheet(isPresented: $showingAbout) {
+                AboutView()
             }
     }
 
@@ -278,6 +291,18 @@ struct ContentView: View {
         if let url = openBroker.consume() {
             openExternal(url)
         }
+        consumePendingAboutShortcut()
+    }
+
+    /// Cold launch from the Home Screen quick action: the shortcut arrived
+    /// before any view was listening.
+    private func consumePendingAboutShortcut() {
+        #if os(iOS)
+        if AppDelegate.pendingShortcutType == AboutCopy.shortcutType {
+            AppDelegate.pendingShortcutType = nil
+            showingAbout = true
+        }
+        #endif
     }
 
     private func ensureUntitledOnWideLayout() {
@@ -423,7 +448,8 @@ struct ContentView: View {
                 onNewSheet: { showingNewTableSheet = true },
                 onImport: { isImporting = true },
                 onConnectFolder: { isConnectingFolder = true },
-                onPasteCSV: { revealRawCSV() }
+                onPasteCSV: { revealRawCSV() },
+                onShowSettings: { showingSettings = true }
             )
             .navigationDestination(isPresented: $isTableOpen) {
                 TableView(viewModel: viewModel, sourceInConnectedFolder: sourceInConnectedFolder)
@@ -460,7 +486,11 @@ struct ContentView: View {
                 // this control is now "Save As" (first save, or save a copy).
                 isExporting = true
             },
-            onPasteCSV: { revealRawCSV() }
+            onPasteCSV: { revealRawCSV() },
+            onShowSettings: {
+                showingWorkspace = false
+                showingSettings = true
+            }
         )
     }
 }
