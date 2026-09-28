@@ -273,6 +273,9 @@ struct ContentView: View {
     private var splitLayout: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             workspaceView
+                // Wide enough that "Connect a folder to browse CSVs." and the
+                // Workspace labels fit on one line at default Dynamic Type.
+                .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 440)
         } detail: {
             TableView(viewModel: viewModel, sourceInConnectedFolder: sourceInConnectedFolder)
         }

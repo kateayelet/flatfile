@@ -138,6 +138,8 @@ struct TableView: View {
                             }
                         }
                     }
+                    .fontWeight(.light)
+                    .symbolRenderingMode(.hierarchical)
                 }
             }
             .confirmationDialog(
@@ -248,9 +250,13 @@ struct TableView: View {
     private func proLabel(_ title: String, systemImage: String) -> some View {
         if store.isPro {
             Label(title, systemImage: systemImage)
+                .fontWeight(.light)
+                .symbolRenderingMode(.hierarchical)
         } else {
             HStack(spacing: 4) {
                 Image(systemName: systemImage)
+                    .fontWeight(.light)
+                    .symbolRenderingMode(.hierarchical)
                 proBadge
             }
             .accessibilityLabel("\(title) (Pro)")
