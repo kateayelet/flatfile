@@ -36,7 +36,7 @@ struct TableListView: View {
             }
         }
         .sidebarListStyle(isCompact: horizontalSizeClass == .compact)
-        .listSectionSpacing(16)
+        .sidebarSectionSpacing(16)
         .navigationTitle("FlatFile")
     }
 
@@ -358,6 +358,17 @@ private extension View {
         } else {
             listStyle(.sidebar)
         }
+        #endif
+    }
+
+    /// Tight section spacing on iOS. `listSectionSpacing` is unavailable on
+    /// macOS, where the sidebar List keeps the system section gap.
+    @ViewBuilder
+    func sidebarSectionSpacing(_ spacing: CGFloat) -> some View {
+        #if os(iOS)
+        listSectionSpacing(spacing)
+        #else
+        self
         #endif
     }
 }
