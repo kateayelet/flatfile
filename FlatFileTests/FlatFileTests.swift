@@ -585,3 +585,24 @@ struct InspectServiceTests {
         #expect(!kinds(findings).contains(.mixedDateFormats))
     }
 }
+
+// MARK: - About copy (keep in lockstep with Kate's Flat family wording)
+
+struct AboutCopyTests {
+    @Test func titleAndShortcutTypeMatchTheSpec() {
+        #expect(AboutCopy.title == "What is FlatFile?")
+        #expect(AboutCopy.shortcutType == "com.aftrveil.flatfile.about")
+    }
+
+    @Test func fourParagraphsAreExact() {
+        #expect(AboutCopy.paragraph1 == "FlatFile is a place to keep tables as plain files.")
+        #expect(AboutCopy.paragraph2 == "Every table is an ordinary CSV: text you can open in any app, with no silent type changes. Your tables live in a folder you choose through Files or Finder. FlatFile stores no separate copy.")
+        #expect(AboutCopy.paragraph3 == "There is no account because there is nothing an account would do for you. FlatFile collects nothing: no ads, no tracking, no analytics.")
+        #expect(AboutCopy.paragraph4 == "If you ever stop using FlatFile, your tables remain ordinary CSV files, readable in any spreadsheet, on any device.")
+    }
+
+    @Test func creditLineMatchesFlatNote() {
+        #expect(AboutCopy.madeForMom == "Made for Mom by Kate Benediktsson")
+        #expect(AboutCopy.versionLine(version: "1.0", build: "3") == "FlatFile 1.0 (Build 3)")
+    }
+}

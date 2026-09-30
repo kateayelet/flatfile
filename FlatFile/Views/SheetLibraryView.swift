@@ -17,6 +17,7 @@ struct SheetLibraryView: View {
     let onImport: () -> Void
     let onConnectFolder: () -> Void
     let onPasteCSV: () -> Void
+    let onShowSettings: () -> Void
 
     @State private var query = ""
 
@@ -59,7 +60,8 @@ struct SheetLibraryView: View {
             onNewSheet: onNewSheet,
             onImport: onImport,
             onConnectFolder: onConnectFolder,
-            onPasteCSV: onPasteCSV
+            onPasteCSV: onPasteCSV,
+            onShowSettings: onShowSettings
         ))
         .onAppear { library.refresh() }
     }
@@ -150,6 +152,7 @@ private struct LibraryToolbar: ViewModifier {
     let onImport: () -> Void
     let onConnectFolder: () -> Void
     let onPasteCSV: () -> Void
+    let onShowSettings: () -> Void
 
     func body(content: Content) -> some View {
         #if os(iOS)
@@ -159,6 +162,8 @@ private struct LibraryToolbar: ViewModifier {
                     Button { onImport() } label: { Label("Open a file", systemImage: "folder") }
                     Button { onPasteCSV() } label: { Label("Paste CSV…", systemImage: "doc.plaintext") }
                     Button { onConnectFolder() } label: { Label("Connect a folder", systemImage: "folder.badge.plus") }
+                    Divider()
+                    Button { onShowSettings() } label: { Label("Settings", systemImage: "gearshape") }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }

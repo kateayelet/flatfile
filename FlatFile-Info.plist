@@ -40,5 +40,17 @@
 	     "FlatFile", so sheets created in the app are real, visible, movable files. -->
 	<key>UIFileSharingEnabled</key>
 	<true/>
+	<!-- Home Screen press-and-hold Quick Action. Type matches AboutCopy.shortcutType. -->
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.aftrveil.flatfile.about</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>What is FlatFile?</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>questionmark.circle</string>
+		</dict>
+	</array>
 </dict>
 </plist>
