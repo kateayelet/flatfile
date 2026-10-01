@@ -17,6 +17,8 @@ extension Notification.Name {
     /// Posted when the user asks "What is FlatFile?" from the Home Screen
     /// quick action; the root view presents the About sheet.
     static let flatfileShowAbout = Notification.Name("flatfileShowAbout")
+    /// Posted by the Mac "Paste CSV…" menu / ⌘⇧V command; ContentView opens the editor.
+    static let flatfilePasteCSV = Notification.Name("flatfilePasteCSV")
 }
 
 #if os(iOS)
@@ -75,6 +77,7 @@ struct FlatFileApp: App {
         #if os(macOS)
         .commands {
             AboutCommands()
+            PasteCSVCommands()
         }
         #endif
 
@@ -103,6 +106,17 @@ private struct AboutCommands: Commands {
             Button(AboutCopy.title) {
                 openWindow(id: AboutWindow.id)
             }
+        }
+    }
+}
+
+private struct PasteCSVCommands: Commands {
+    var body: some Commands {
+        CommandGroup(after: .pasteboard) {
+            Button("Paste CSV…") {
+                NotificationCenter.default.post(name: .flatfilePasteCSV, object: nil)
+            }
+            .keyboardShortcut("v", modifiers: [.command, .shift])
         }
     }
 }

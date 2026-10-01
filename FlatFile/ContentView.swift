@@ -94,14 +94,22 @@ struct ContentView: View {
     // MARK: - Body stages (one concern each so the type checker can finish)
 
     private func withPasteCSVCommands<V: View>(_ content: V) -> some View {
-        content.commands {
-            CommandGroup(after: .pasteboard) {
-                Button("Paste CSV…") {
-                    revealRawCSV()
-                }
-                .keyboardShortcut("v", modifiers: [.command, .shift])
+        // `.commands` is Scene-only (see FlatFileApp). Listen for the menu /
+        // shortcut notification here, and keep ⌘⇧V wired via a hidden button
+        // so it still works if the menu is not focused.
+        content
+            .onReceive(NotificationCenter.default.publisher(for: .flatfilePasteCSV)) { _ in
+                revealRawCSV()
             }
-        }
+            #if os(macOS)
+            .background {
+                Button("") { revealRawCSV() }
+                    .keyboardShortcut("v", modifiers: [.command, .shift])
+                    .frame(width: 0, height: 0)
+                    .opacity(0)
+                    .accessibilityHidden(true)
+            }
+            #endif
     }
 
     private func withLifecycle<V: View>(_ content: V) -> some View {
