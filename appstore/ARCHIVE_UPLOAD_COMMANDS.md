@@ -5,14 +5,24 @@ Checkout: `~/11-flatfile-app` (live). `~/06-flatfile-app` is nested dump only.
 
 ## Blockers found 2026-10-01 (PT)
 
+### Done locally this session
+- iOS archive **SUCCEEDED** → `/tmp/flatfile-archives/FlatFile-iOS.xcarchive`
+- iOS export **SUCCEEDED** → `/tmp/flatfile-exports/iOS/FlatFile.ipa`
+- Mac archive **SUCCEEDED** → `/tmp/flatfile-archives/FlatFile-Mac.xcarchive`
+- Mac export: see log `/tmp/flatfile-archives/mac-export.log` (re-run §3 if needed)
+
+### Upload blocked — no ASC API / notary credentials
 Upload to App Store Connect / TestFlight **cannot finish from CLI** until Kate provides one of:
 
 1. **App Store Connect API key** (preferred)
    - Place `AuthKey_<KEY_ID>.p8` in `~/.appstoreconnect/private_keys/`
    - Export: `APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`
+   - None of: `~/.appstoreconnect/private_keys`, `~/AuthKey*.p8`, ASC env vars
 2. **Or** `xcrun notarytool store-credentials` / altool Apple ID + app-specific password
-   - No Keychain profile `AC_PASSWORD` present
-3. **Transporter.app** — not installed
+   - No Keychain profile `AC_PASSWORD` present (`notarytool` / `security` both miss it)
+3. **Transporter.app** — not installed under `/Applications`
+
+Ambient Apple ID auth (if any) is **not** usable for unattended upload — do not rely on it; use an API key.
 
 IAP creation in ASC UI is a **Kate gate** (interactive login). Product id (paste-ready):
 
