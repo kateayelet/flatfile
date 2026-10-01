@@ -601,8 +601,17 @@ struct AboutCopyTests {
         #expect(AboutCopy.paragraph4 == "If you ever stop using FlatFile, your tables remain ordinary CSV files, readable in any spreadsheet, on any device.")
     }
 
-    @Test func creditLineMatchesFlatNote() {
-        #expect(AboutCopy.madeForMom == "Made for Mom by Kate Benediktsson")
+    @Test func dedicationLineIsExact() {
+        #expect(AboutCopy.dedication == "For my mama, Cathy. Inspired by my brother John — my hero.")
         #expect(AboutCopy.versionLine(version: "1.0", build: "3") == "FlatFile 1.0 (Build 3)")
+    }
+}
+
+// MARK: - Credits copy (keep in lockstep with Kate's Flat family wording)
+
+struct CreditsCopyTests {
+    @Test func titleAndBlurbAreExact() {
+        #expect(CreditsCopy.title == "Credits")
+        #expect(CreditsCopy.blurb == "FlatNote, FlatFile, and Flat Voice are for my mama, Cathy Benediktsson. Inspired by my brother John Benediktsson — my hero. Notes, files, and voice, kept simple.")
     }
 }
