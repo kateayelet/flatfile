@@ -1,11 +1,9 @@
 //
-//  AboutView.swift
+//  CreditsView.swift
 //  FlatFile
 //
-//  The "What is FlatFile?" card. Same copy everywhere it appears:
-//  Settings, the Home Screen quick action, and the Mac About window.
-//  Title matches the button. Dedication is personal — the App Store listing
-//  is under Kate Benediktsson, not Aftrveil Labs.
+//  Family dedication card. Same copy everywhere it appears: Settings
+//  and the Mac Credits window. Layout matches AboutView.
 //
 
 import SwiftUI
@@ -13,34 +11,19 @@ import SwiftUI
 import AppKit
 #endif
 
-/// Canonical About strings. Shortcut type follows the Flat family
-/// (`com.aftrveil.*`) used by FlatNote; the shipping bundle id is
-/// `aftrveil.FlatFile`.
-enum AboutCopy {
-    static let title = "What is FlatFile?"
-    /// Home Screen quick action type. Must match `UIApplicationShortcutItemType`
-    /// in `FlatFile-Info.plist`.
-    static let shortcutType = "com.aftrveil.flatfile.about"
-
-    static let paragraph1 = "FlatFile is a place to keep tables as plain files."
-    static let paragraph2 = "Every table is an ordinary CSV: text you can open in any app, with no silent type changes. Your tables live in a folder you choose through Files or Finder. FlatFile stores no separate copy."
-    static let paragraph3 = "There is no account because there is nothing an account would do for you. FlatFile collects nothing: no ads, no tracking, no analytics."
-    static let paragraph4 = "If you ever stop using FlatFile, your tables remain ordinary CSV files, readable in any spreadsheet, on any device."
-    /// Locked Flat family dedication. Must stay verbatim.
-    static let dedication = "For my mama, Cathy. Inspired by my brother John — my hero."
-
-    static func versionLine(version: String, build: String) -> String {
-        "FlatFile \(version) (Build \(build))"
-    }
+/// Canonical Credits strings. Locked Flat family dedication — must stay verbatim.
+enum CreditsCopy {
+    static let title = "Credits"
+    static let blurb = "FlatNote, FlatFile, and Flat Voice are for my mama, Cathy Benediktsson. Inspired by my brother John Benediktsson — my hero. Notes, files, and voice, kept simple."
 }
 
 #if os(macOS)
-enum AboutWindow {
-    static let id = "about"
+enum CreditsWindow {
+    static let id = "credits"
 }
 #endif
 
-struct AboutView: View {
+struct CreditsView: View {
     @Environment(\.dismiss) private var dismiss
 
     private var versionLine: String {
@@ -50,18 +33,9 @@ struct AboutView: View {
     }
 
     @ViewBuilder
-    private var copyBlock: some View {
-        Text(AboutCopy.paragraph1)
-        Text(AboutCopy.paragraph2)
-        Text(AboutCopy.paragraph3)
-        Text(AboutCopy.paragraph4)
-    }
-
-    @ViewBuilder
     private var creditBlock: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(versionLine)
-            Text(AboutCopy.dedication)
         }
         .font(.callout)
         .foregroundStyle(.secondary)
@@ -69,7 +43,7 @@ struct AboutView: View {
 
     var body: some View {
         #if os(macOS)
-        // A real About window: content-hugging height, dismissed by the
+        // Same chrome as About: content-hugging height, dismissed by the
         // window's own controls — no confirmation-style button.
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -79,9 +53,9 @@ struct AboutView: View {
                     .frame(width: 64, height: 64)
                 Spacer()
             }
-            Text(AboutCopy.title)
+            Text(CreditsCopy.title)
                 .font(.title2.bold())
-            copyBlock
+            Text(CreditsCopy.blurb)
                 .font(.body)
             creditBlock
         }
@@ -91,13 +65,11 @@ struct AboutView: View {
         #else
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text(AboutCopy.title)
+                Text(CreditsCopy.title)
                     .font(.title2.bold())
 
-                VStack(alignment: .leading, spacing: 30) {
-                    copyBlock
-                }
-                .font(.body)
+                Text(CreditsCopy.blurb)
+                    .font(.body)
 
                 creditBlock
                     .padding(.top, 4)

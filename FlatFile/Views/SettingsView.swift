@@ -2,7 +2,7 @@
 //  SettingsView.swift
 //  FlatFile
 //
-//  Lean Settings: Philosophy (the About card) and the version line.
+//  Lean Settings: Philosophy (About + Credits cards) and the version line.
 //  Same view as a sheet on iOS/iPad and as the Mac Settings window.
 //
 
@@ -11,6 +11,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingAbout = false
+    @State private var showingCredits = false
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
     #endif
@@ -30,6 +31,11 @@ struct SettingsView: View {
                     } label: {
                         Label(AboutCopy.title, systemImage: "questionmark.circle")
                     }
+                    Button {
+                        showCredits()
+                    } label: {
+                        Label(CreditsCopy.title, systemImage: "heart")
+                    }
                 } header: {
                     Text("Philosophy")
                 }
@@ -48,6 +54,9 @@ struct SettingsView: View {
             .sheet(isPresented: $showingAbout) {
                 AboutView()
             }
+            .sheet(isPresented: $showingCredits) {
+                CreditsView()
+            }
         }
         #if os(macOS)
         // Without an explicit frame the List collapses to zero height inside
@@ -61,6 +70,14 @@ struct SettingsView: View {
         openWindow(id: AboutWindow.id)
         #else
         showingAbout = true
+        #endif
+    }
+
+    private func showCredits() {
+        #if os(macOS)
+        openWindow(id: CreditsWindow.id)
+        #else
+        showingCredits = true
         #endif
     }
 }

@@ -90,6 +90,11 @@ struct FlatFileApp: App {
         }
         .windowResizability(.contentSize)
 
+        Window(CreditsCopy.title, id: CreditsWindow.id) {
+            CreditsView()
+        }
+        .windowResizability(.contentSize)
+
         Settings {
             SettingsView()
         }
@@ -105,6 +110,9 @@ private struct AboutCommands: Commands {
         CommandGroup(replacing: .appInfo) {
             Button(AboutCopy.title) {
                 openWindow(id: AboutWindow.id)
+            }
+            Button(CreditsCopy.title) {
+                openWindow(id: CreditsWindow.id)
             }
         }
     }
