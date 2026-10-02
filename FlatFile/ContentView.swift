@@ -41,8 +41,16 @@ struct ContentView: View {
         if let env = ProcessInfo.processInfo.environment["FF_SCREENSHOT"], !env.isEmpty {
             return env
         }
-        if CommandLine.arguments.contains("--screenshot-inspect") { return "inspect" }
-        if CommandLine.arguments.contains("--screenshot-demo") { return "demo" }
+        let args = CommandLine.arguments
+        if let idx = args.firstIndex(of: "--screenshot"), args.index(after: idx) < args.endIndex {
+            return args[args.index(after: idx)]
+        }
+        if args.contains("--screenshot-inspect") { return "inspect" }
+        if args.contains("--screenshot-demo") { return "demo" }
+        if args.contains("--screenshot-templates") { return "templates" }
+        if args.contains("--screenshot-folder") { return "folder" }
+        if args.contains("--screenshot-paperclip") { return "paperclip" }
+        if args.contains("--screenshot-raw") { return "raw" }
         return nil
     }
     #endif
@@ -278,12 +286,39 @@ struct ContentView: View {
             switch screenshotMode {
             case "demo":
                 viewModel.loadDemoDocument()
+                viewModel.showingRawCSV = false
                 columnVisibility = .all
                 isTableOpen = true
             case "inspect":
                 viewModel.loadDemoDocument(withIssues: true)
+                viewModel.showingRawCSV = false
                 columnVisibility = .all
                 viewModel.showingInspect = true
+                isTableOpen = true
+            case "templates":
+                // Lived-in Budget under the template picker sheet.
+                viewModel.loadDemoDocument()
+                viewModel.showingRawCSV = false
+                columnVisibility = .all
+                isTableOpen = true
+                showingTemplatePicker = true
+            case "folder":
+                // Seed the Sheets library with several named CSVs (+ paired notes).
+                library.seedScreenshotLibrary()
+                isTableOpen = false
+                columnVisibility = .all
+            case "paperclip":
+                // Table with paperclip companion affordance visible.
+                viewModel.loadDemoDocument()
+                viewModel.seedScreenshotPaperclip(in: library.ownedFolderURL)
+                library.loadOwned()
+                columnVisibility = .all
+                isTableOpen = true
+            case "raw":
+                // Mac/iPad: grid + Raw CSV pane (same truth).
+                viewModel.loadDemoDocument()
+                viewModel.showingRawCSV = true
+                columnVisibility = .all
                 isTableOpen = true
             default:
                 // iPhone opens to the tiles home; iPad/Mac keep a table in
@@ -432,6 +467,11 @@ struct ContentView: View {
     /// The open .csv lives in a connected folder, so we hold a scope that covers
     /// reading/writing its companion .md (gates the companion-note features).
     private var sourceInConnectedFolder: Bool {
+        #if DEBUG
+        // Screenshot paperclip mode forces the companion affordance on so the
+        // App Store shot can show the paperclip without wiring a real bookmark.
+        if screenshotMode == "paperclip" { return true }
+        #endif
         guard let url = viewModel.sourceURL else { return false }
         return library.contains(url)
     }

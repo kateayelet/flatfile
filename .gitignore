@@ -1,25 +1,24 @@
-# Xcode
-*.xcuserstate
-*.xcuserdatad/
-xcuserdata/
-DerivedData/
-build/
-*.pbxuser
-*.perspectivev3
-*.mode1v3
-*.mode2v3
-!default.pbxuser
-!default.perspectivev3
+
 !default.mode1v3
 !default.mode2v3
-
-# Stale duplicate from Xcode (delete locally when ready)
-FlatFile copy.xcodeproj/
-
-# macOS
-.DS_Store
-*.swp
-*~
-
+!default.pbxuser
+!default.perspectivev3
 # Coverage / profiling artifacts
+# Stale duplicate from Xcode (delete locally when ready)
+# Xcode
+# macOS
+*.mode1v3
+*.mode2v3
+*.pbxuser
+*.perspectivev3
 *.profraw
+*.swp
+*.xcuserdatad/
+*.xcuserstate
+*~
+.DS_Store
+DerivedData/
+FlatFile copy.xcodeproj/
+build/
+node_modules/
+xcuserdata/
