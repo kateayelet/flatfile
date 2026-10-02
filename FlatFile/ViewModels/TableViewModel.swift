@@ -231,6 +231,22 @@ final class TableViewModel {
         errorMessage = nil
         resetUndoHistory()
     }
+
+    /// Write field-budget.csv + companion .md into `folder`, open the CSV, and
+    /// set pairedMarkdownURL so the paperclip toolbar control appears.
+    func seedScreenshotPaperclip(in folder: URL) {
+        let csv = folder.appendingPathComponent("field-budget").appendingPathExtension("csv")
+        let md = folder.appendingPathComponent("field-budget").appendingPathExtension("md")
+        if let doc = document {
+            try? Data(doc.rawCSV.utf8).write(to: csv, options: .atomic)
+        }
+        if !FileManager.default.fileExists(atPath: md.path) {
+            let body = "# field-budget\n\nSaturday shop notes. Same name as the .csv.\n"
+            try? Data(body.utf8).write(to: md, options: .atomic)
+        }
+        sourceURL = csv
+        pairedMarkdownURL = md
+    }
     #endif
 
     func createFromTemplate(_ template: CSVTemplate, name: String) {

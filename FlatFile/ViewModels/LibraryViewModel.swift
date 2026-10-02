@@ -104,6 +104,52 @@ final class LibraryViewModel {
 
     // MARK: - Owned folder (FlatFile's own sheets)
 
+
+    #if DEBUG
+    /// Seed several domestic/human CSVs (+ paired notes) into the owned folder
+    /// for the App Store "Your folder. Your files." screenshot. Idempotent.
+    func seedScreenshotLibrary() {
+        let sheets: [(name: String, rows: [[String]], paired: Bool)] = [
+            ("field-budget", [
+                ["What", "Amount", "Notes"],
+                ["Groceries", "86", "Saturday shop"],
+                ["Electric bill", "94", "Due the 15th"],
+            ], true),
+            ("people", [
+                ["Name", "Phone", "Notes"],
+                ["Mom", "555-0142", "Call on Sundays"],
+                ["Sam", "555-0199", "Has the spare key"],
+            ], true),
+            ("stuff-i-own", [
+                ["Item", "Where", "Notes"],
+                ["Living room TV", "Living room", "55\" from 2019"],
+            ], false),
+            ("to-do", [
+                ["Task", "When", "Notes"],
+                ["Call the dentist", "Tuesday", "Ask about the crown"],
+            ], false),
+            ("notes", [
+                ["Title", "Body"],
+                ["Spare key", "Under the blue pot"],
+            ], true),
+        ]
+        for sheet in sheets {
+            let csv = ownedFolderURL.appendingPathComponent(sheet.name).appendingPathExtension("csv")
+            if !FileManager.default.fileExists(atPath: csv.path) {
+                _ = createSheetFile(name: sheet.name, rows: sheet.rows)
+            }
+            if sheet.paired {
+                let md = ownedFolderURL.appendingPathComponent(sheet.name).appendingPathExtension("md")
+                if !FileManager.default.fileExists(atPath: md.path) {
+                    let body = "# \(sheet.name)\n\nNotes that live next to the table.\n"
+                    try? body.data(using: .utf8)?.write(to: md)
+                }
+            }
+        }
+        loadOwned()
+    }
+    #endif
+
     /// List the `.csv` files FlatFile keeps in its own folder.
     func loadOwned() {
         ownedEntries = FolderLibrary.listCSVFiles(in: ownedFolderURL)

@@ -1,64 +1,47 @@
-# FlatFile — Screenshot Shot List
+# FlatFile — Screenshot Shot List (framed ASC set)
 
-App Store screenshots cannot be generated headlessly; capture them from the
-running app in the simulator (and on a real Mac for the macOS set). Required
-sizes and the intended shots are below. Drop the PNGs into the folders named
-here; the submission checklist references these exact paths.
+**Status:** framed set ready for Kate / ASC operator upload · **Do not upload from agents**  
+**Canvas:** warm paper `#F2F1ED` via `appstore/frame.html` + `mac-frame.html` (FlatNote pattern)  
+**Footer (thesis):** Made for Mom by Kate Benediktsson  
+**Date:** 2026-10-02 PT
 
 ## Required sizes
 
-| Folder | Device slot | Pixel size |
+| Folder | Slot | Pixels |
 |---|---|---|
-| `iphone-6.9/` | iPhone 6.9" (required) | 1320 x 2868 |
-| `ipad-13/` | iPad 13" (required) | 2064 x 2752 |
-| `mac/` | macOS | 1440 x 900 (or 1280x800 / 2560x1600 / 2880x1800) |
+| `iphone-6.9/` | iPhone 6.9" | 1320 × 2868 |
+| `ipad-13/` | iPad 13" | 2064 × 2752 |
+| `mac/` | Mac | 2880 × 1800 framed |
 
-## Captured (order matters — first shot leads the product page)
+## Final framed files (upload these)
 
-### iPhone (`iphone-6.9/`) — DONE, 1320x2868
-1. `1-table.png` — the populated `field-budget` table, Sort controls + toolbar.
-2. `2-inspect.png` — the Inspect view flagging duplicate rows, blank cells,
-   leading-zero IDs ("Numbers other apps would alter"), and mixed date formats.
+### iPhone (`iphone-6.9/`) — 6
+1. `iphone-1-grid.png` — The grid is the .csv.
+2. `iphone-2-templates.png` — Start from something human.
+3. `iphone-3-folder.png` — Your folder. Your files.
+4. `iphone-4-inspect.png` — Never guesses your data.
+5. `iphone-5-paperclip.png` — Tables next to notes.
+6. `iphone-6-thesis.png` — No account needed.
 
-### iPad (`ipad-13/`) — DONE, 2064x2752
-1. `1-table.png` — the full table on the larger canvas with the Append Row form.
-2. `2-inspect.png` — the `invoices` table with the Inspect findings sheet over
-   it (you can see the flagged data behind it).
+### iPad (`ipad-13/`) — 4
+1. `ipad-1-grid.png`
+2. `ipad-2-templates.png`
+3. `ipad-3-inspect.png`
+4. `ipad-4-paperclip.png`
 
-### Mac (`mac/`) — DONE, 1440x900
-1. `1-table.png` — sidebar + table + Raw CSV split, the full Mac layout.
-2. `2-inspect.png` — the Inspect findings over the `invoices` table.
-Captured by running the Mac app with `FF_SCREENSHOT`, positioning the window to
-1440x900 via System Events, and `screencapture -R`. Other acceptable Mac sizes:
-1280x800, 2560x1600, 2880x1800.
+### Mac (`mac/`) — 3
+1. `mac-1-grid.png` — Sidebar + table (derived; live Mac recapture blocked by Screen Recording TCC)
+2. `mac-2-raw.png` — Grid + Raw CSV (existing window capture reframed)
+3. `mac-3-inspect.png` — Inspect
 
-## How these were captured (reproducible)
+Raw UI sources live under `screenshots/raw/`. Re-frame with `node appstore/render-frames.mjs`.
 
-The iPhone/iPad shots were generated headlessly via a DEBUG-only screenshot seam
-(the `FF_SCREENSHOT` env var, see `ContentView.screenshotMode`), which seeds a
-demo table and — for inspect — a dataset with deliberate data-quality issues.
+## Capture seam (`FF_SCREENSHOT`)
 
-```
-# build for simulator
-xcodebuild -project FlatFile.xcodeproj -scheme FlatFile -configuration Debug \
-  -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
-  -derivedDataPath /tmp/ff-build build CODE_SIGNING_ALLOWED=NO
-APP=/tmp/ff-build/Build/Products/Debug-iphonesimulator/FlatFile.app
+DEBUG builds: `demo` · `inspect` · `templates` · `folder` · `paperclip` · `raw`  
+Pass via `SIMCTL_CHILD_FF_SCREENSHOT=<mode>` (sim) or env on Mac.
 
-# per device: create + boot + install, then for each screen:
-xcrun simctl install <udid> "$APP"
-SIMCTL_CHILD_FF_SCREENSHOT=demo    xcrun simctl launch <udid> aftrveil.FlatFile  # table
-SIMCTL_CHILD_FF_SCREENSHOT=inspect xcrun simctl launch <udid> aftrveil.FlatFile  # inspect
-xcrun simctl io <udid> screenshot <out.png>   # repeat a few times to pass the launch animation
-```
+## Notes / blockers
 
-iPhone device: **iPhone 17 Pro Max** (1320x2868). iPad: **iPad Pro 13-inch (M5)**
-(2064x2752).
-
-### Mac recapture (already captured — `mac/1-table.png`, `mac/2-inspect.png`)
-The seam works on Mac too. To recapture, run the Mac app with the env var set
-and screenshot the window:
-```
-FF_SCREENSHOT=demo /path/to/FlatFile.app/Contents/MacOS/FlatFile   # then Cmd+Shift+4, space
-```
-Resize the window to ~1440x900 first, or capture and pad to a listed size.
+- Mac live window recapture needs Screen Recording permission for the agent shell — reused prior 1440×900 captures; grid cropped from table+raw for distinct hero.
+- Old unframed `1-table.png` / `2-inspect.png` kept for reference; upload the `iphone-*` / `ipad-*` / `mac-*` names.
