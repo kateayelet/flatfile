@@ -11,54 +11,53 @@ struct CSVTemplate: Identifiable {
         CSVTemplate(
             name: "Blank",
             icon: "tablecells",
-            headers: ["column_1", "column_2", "column_3"],
+            headers: ["Name", "Notes", "Extra"],
             exampleRows: []
         ),
         CSVTemplate(
-            name: "Contact List",
+            name: "People",
             icon: "person.2",
-            headers: ["name", "email", "phone", "company", "notes"],
+            headers: ["Name", "Phone", "Notes"],
             exampleRows: [
-                ["Jane Doe", "jane@example.com", "555-0100", "Acme Inc", "Met at conference"],
-                ["John Smith", "john@example.com", "555-0200", "Globex", "Follow up next week"]
+                ["Mom", "555-0142", "Call on Sundays"],
+                ["Sam", "555-0199", "Has the spare key"]
             ]
         ),
         CSVTemplate(
-            name: "Budget Tracker",
+            name: "Budget",
             icon: "dollarsign.circle",
-            headers: ["date", "category", "description", "amount", "type"],
+            headers: ["What", "Amount", "Notes"],
             exampleRows: [
-                ["2026-01-15", "Food", "Groceries", "85.50", "expense"],
-                ["2026-01-16", "Transport", "Bus pass", "45.00", "expense"],
-                ["2026-01-31", "Income", "Freelance", "1200.00", "income"]
+                ["Groceries", "86", "Saturday shop"],
+                ["Electric bill", "94", "Due the 15th"],
+                ["Movie night", "24", ""]
             ]
         ),
         CSVTemplate(
-            name: "Research Log",
-            icon: "doc.text.magnifyingglass",
-            headers: ["date", "source", "title", "key_finding", "tags", "url", "confidence"],
+            name: "Stuff I own",
+            icon: "house",
+            headers: ["Item", "Where", "Notes"],
             exampleRows: [
-                ["2026-01-10", "PubMed", "Fiber analysis methods", "SEM confirms morphology", "fiber,SEM", "https://example.com/1", "high"],
-                ["2026-01-12", "Lab notes", "Sample batch 4", "Fluorescence under 395nm UV", "UV,fluorescence", "", "medium"]
+                ["Living room TV", "Living room", "55\" from 2019"],
+                ["Living room sofa", "Living room", "Blue, needs cleaning"]
             ]
         ),
         CSVTemplate(
-            name: "Task List",
+            name: "To-do",
             icon: "checklist",
-            headers: ["task", "priority", "status", "due_date", "assignee", "notes"],
+            headers: ["Task", "When", "Notes"],
             exampleRows: [
-                ["Write draft", "high", "in_progress", "2026-02-01", "Kate", "Section 3 needs data"],
-                ["Review figures", "medium", "todo", "2026-02-05", "", "Check resolution"]
+                ["Call the dentist", "Tuesday", "Ask about the crown"],
+                ["Return library books", "Friday", "They're on the hall table"]
             ]
         ),
         CSVTemplate(
-            name: "Inventory",
-            icon: "shippingbox",
-            headers: ["item", "sku", "quantity", "unit_price", "location", "reorder_at"],
+            name: "Notes",
+            icon: "note.text",
+            headers: ["Date", "What I found", "Notes"],
             exampleRows: [
-                ["Microscope slides", "SLD-001", "500", "0.12", "Lab A", "100"],
-                ["Coverslips", "CVR-001", "200", "0.08", "Lab A", "50"],
-                ["Ethanol 70%", "ETH-070", "12", "8.50", "Storage B", "4"]
+                ["Oct 1", "Library stays open late Thursday", "Until 8"],
+                ["Oct 2", "Sam has a spare HDMI cable", "Ask before movie night"]
             ]
         )
     ]

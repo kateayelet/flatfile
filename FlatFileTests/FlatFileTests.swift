@@ -232,12 +232,38 @@ struct CSVTemplateTests {
         #expect(CSVTemplate.builtIn.count == 6)
         #expect(CSVTemplate.builtIn.map(\.name) == [
             "Blank",
-            "Contact List",
-            "Budget Tracker",
-            "Research Log",
-            "Task List",
-            "Inventory"
+            "People",
+            "Budget",
+            "Stuff I own",
+            "To-do",
+            "Notes"
         ])
+        #expect(CSVTemplate.builtIn.map(\.headers) == [
+            ["Name", "Notes", "Extra"],
+            ["Name", "Phone", "Notes"],
+            ["What", "Amount", "Notes"],
+            ["Item", "Where", "Notes"],
+            ["Task", "When", "Notes"],
+            ["Date", "What I found", "Notes"]
+        ])
+    }
+
+    @Test func builtInHeadersAvoidWarehouseAndCRMJargon() {
+        let forbidden = [
+            "sku", "unit_price", "reorder_at", "assignee", "confidence",
+            "key_finding", "column_1", "column_2", "column_3", "priority",
+            "status", "due_date", "company", "category", "type"
+        ]
+        let headers = CSVTemplate.builtIn.flatMap(\.headers)
+        for header in headers {
+            #expect(!forbidden.contains(header))
+            #expect(!header.contains("_"))
+        }
+    }
+
+    @Test func blankTemplateHasNoSampleRows() {
+        let blank = CSVTemplate.builtIn.first { $0.name == "Blank" }
+        #expect(blank?.exampleRows.isEmpty == true)
     }
 }
 
