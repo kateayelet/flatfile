@@ -14,7 +14,7 @@ per-version "Distribution" pages (one for iOS, one for macOS).
 ## App Information (set once, applies to all platforms)
 
 - **Name:** FlatFile
-- **Subtitle (max 30):** Plain CSV editor, no lock-in
+- **Subtitle (max 30):** Looks great. Lasts forever.
 - **Primary category:** Productivity
 - **Secondary category:** Utilities
 - **Age rating:** 4+ (no objectionable content)
